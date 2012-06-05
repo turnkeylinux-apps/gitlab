@@ -175,3 +175,6 @@ update-rc.d gitlab defaults
 /etc/init.d/mysql stop
 /etc/init.d/redis-server stop
 
+# cleanup
+rm -rf $SRC/*
+
