@@ -1,0 +1,21 @@
+server {
+    listen 0.0.0.0:80;
+    root /home/gitlab/gitlab/public;
+
+    access_log /var/log/nginx/gitlab.access.log;
+    error_log /var/log/nginx/gitlab.error.log;
+
+    include /etc/nginx/include/gitlab-proxy;
+}
+
+server {
+    listen 0.0.0.0:443;
+    root /home/gitlab/gitlab/public;
+
+    access_log /var/log/nginx/gitlab.access.log;
+    error_log /var/log/nginx/gitlab.error.log;
+
+    include /etc/nginx/include/ssl;
+    include /etc/nginx/include/gitlab-proxy;
+}
+
