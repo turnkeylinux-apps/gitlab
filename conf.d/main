@@ -78,6 +78,7 @@ chown -R git:git $GIT/repositories/
 
 # start services
 /etc/init.d/mysql start
+/etc/init.d/redis-server start
 
 # setup database
 MYSQL_BATCH="mysql --user=root --password=$MYSQL_PASS --batch"
@@ -145,5 +146,23 @@ exec_gitlab "cat >>$GITLAB/gitlab/app/views/layouts/application.html.haml<<EOF
 <div id='turnkey-credit' style='font-size:10px;text-align:center;padding-top:20px'><a href='http://www.turnkeylinux.org/gitlab'>GitLab Appliance</a> - Powered by <a href='http://www.turnkeylinux.org'>TurnKey Linux</a></div>
 EOF"
 
+cd $GITLAB/gitlab
+exec_gitlab "mv Gemfile.lock Gemfile.lock.orig"
+exec_gitlab "mv Gemfile Gemfile.orig"
+
+line_no=$(grep -n "group :development do" Gemfile.orig | cut -d: -f1)
+head -n $((${line_no}-1)) Gemfile.orig > Gemfile
+sed -i "s|, :git =>.*||" Gemfile
+
+exec_gitlab "mkdir -p vendor/cache"
+exec_gitlab "cp $SRC/gems/*.gem vendor/cache/"
+
+exec_gitlab "bundle install --local --without development test --no-deployment"
+exec_gitlab "bundle install --local --without development test --deployment"
+exec_gitlab "bundle exec rake db:setup RAILS_ENV=production"
+exec_gitlab "bundle exec rake db:seed_fu RAILS_ENV=production"
+
 # stop services
 /etc/init.d/mysql stop
+/etc/init.d/redis-server stop
+
