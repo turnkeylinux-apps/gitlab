@@ -50,3 +50,15 @@ dpkg -i $SRC/python-passlib_*.deb
 adduser --system --shell /bin/sh --group --disabled-password --home $GIT git
 adduser --disabled-login --ingroup git --gecos 'gitlab' gitlab
 
+# install gitolite
+exec_git "tar -zxf $SRC/gitlabhq-gitolite-*.tar.gz -C $GIT"
+exec_git "mv $GIT/gitlabhq-gitolite-* $GIT/gitolite"
+
+exec_git "cat >$GIT/.profile<<EOF
+PATH=\$PATH:/home/git/bin
+export PATH
+EOF"
+
+exec_git "$GIT/gitolite/src/gl-system-install"
+exec_git "sed -i 's/0077/0007/g' $GIT/share/gitolite/conf/example.gitolite.rc"
+
