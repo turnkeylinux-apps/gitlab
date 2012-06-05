@@ -21,3 +21,21 @@ exec_gitlab() {
     sudo -u gitlab -H sh -c "$@"
 }
 
+# unpack and install ruby19 (if pre-build is available, use it)
+if [ -e $SRC/ruby-1.9.*-build.tar.gz ]; then
+    tar -zxf $SRC/ruby-1.9.*-build.tar.gz -C $SRC
+    cd $SRC/ruby-1.9.*
+    make install
+else
+    tar -zxf $SRC/ruby-1.9.*.tar.gz -C $SRC
+    cd $SRC/ruby-1.9.*
+    ./configure
+    make
+    make install
+fi
+
+# install rubygems
+tar -zxf $SRC/rubygems-*.tgz -C $SRC
+cd $SRC/rubygems-*
+ruby setup.rb
+
