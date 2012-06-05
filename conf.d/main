@@ -1,0 +1,23 @@
+#!/bin/sh -ex
+
+DB_NAME=gitlab_production
+DB_USER=gitlab
+DB_PASS=$(mcookie)
+
+ADMIN_MAIL=admin@example.com
+ADMIN_PASS=turnkey
+DOMAIN=git.example.com
+
+GIT=/home/git
+GITLAB=/home/gitlab
+
+SRC=/usr/local/src
+
+exec_git() {
+    sudo -u git -H sh -c "PATH=\$PATH:$GIT/bin; $@"
+}
+
+exec_gitlab() {
+    sudo -u gitlab -H sh -c "$@"
+}
+
