@@ -86,6 +86,64 @@ MYSQL_ADMIN="mysqladmin --user=root --password=$MYSQL_PASS"
 $MYSQL_ADMIN create $DB_NAME --default-character-set=utf8;
 $MYSQL_BATCH --execute "grant all privileges on $DB_NAME.* to $DB_USER@localhost identified by '$DB_PASS'; flush privileges;"
 
+# setup gitlab
+exec_gitlab "tar -zxf $SRC/gitlab-*.tar.gz -C $GITLAB"
+
+exec_gitlab "cat >$GITLAB/gitlab/config/gitlab.yml<<EOF
+# Gitlab application config file
+
+# Email used for notification about new issues, comments
+# Protocol is for links in emails (http or https)
+email:
+  from: $ADMIN_MAIL
+  host: localhost
+  protocol: http
+
+# Git Hosting configuration
+git_host:
+  system: gitolite
+  admin_uri: git@localhost:gitolite-admin
+  base_path: $GIT/repositories/
+  host: $DOMAIN
+  git_user: git
+  # port: 22
+
+# Git settings
+# Max size of git object like commit in bytes
+# Timeout to read commit in seconds
+git:
+  git_max_size: 5242880 # 5MB
+  git_timeout: 10
+EOF"
+
+exec_gitlab "cat >$GITLAB/gitlab/config/database.yml<<EOF
+production:
+  adapter: mysql2
+  encoding: utf8
+  reconnect: false
+  database: $DB_NAME
+  username: $DB_USER
+  password: $DB_PASS
+  pool: 5
+EOF"
+chmod 640 $GITLAB/gitlab/config/database.yml
+
+exec_gitlab "cat >$GITLAB/gitlab/db/fixtures/production/001_admin.rb<<EOF
+admin = User.create(
+  :email => \"$ADMIN_MAIL\",
+  :name => \"Administrator\",
+  :password => \"$ADMIN_PASS\",
+  :password_confirmation => \"$ADMIN_PASS\"
+)
+
+admin.projects_limit = 10000
+admin.admin = true
+admin.save!
+EOF"
+
+exec_gitlab "cat >>$GITLAB/gitlab/app/views/layouts/application.html.haml<<EOF
+<div id='turnkey-credit' style='font-size:10px;text-align:center;padding-top:20px'><a href='http://www.turnkeylinux.org/gitlab'>GitLab Appliance</a> - Powered by <a href='http://www.turnkeylinux.org'>TurnKey Linux</a></div>
+EOF"
+
 # stop services
 /etc/init.d/mysql stop
-
