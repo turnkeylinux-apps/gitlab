@@ -168,6 +168,9 @@ mv $GITLAB/gitlab/config/unicorn.rb.orig $GITLAB/gitlab/config/unicorn.rb
 rm /etc/nginx/sites-enabled/default
 ln -s /etc/nginx/sites-available/gitlab /etc/nginx/sites-enabled/gitlab
 
+# setup gitlab initscript
+update-rc.d gitlab defaults
+
 # stop services
 /etc/init.d/mysql stop
 /etc/init.d/redis-server stop
