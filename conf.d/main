@@ -162,6 +162,12 @@ exec_gitlab "bundle install --local --without development test --deployment"
 exec_gitlab "bundle exec rake db:setup RAILS_ENV=production"
 exec_gitlab "bundle exec rake db:seed_fu RAILS_ENV=production"
 
+# setup unicorn and nginx
+mv $GITLAB/gitlab/config/unicorn.rb.orig $GITLAB/gitlab/config/unicorn.rb
+
+rm /etc/nginx/sites-enabled/default
+ln -s /etc/nginx/sites-available/gitlab /etc/nginx/sites-enabled/gitlab
+
 # stop services
 /etc/init.d/mysql stop
 /etc/init.d/redis-server stop
