@@ -46,3 +46,7 @@ gem install --local --no-rdoc --no-ri *.gem
 # install backported python-passlib
 dpkg -i $SRC/python-passlib_*.deb
 
+# create users
+adduser --system --shell /bin/sh --group --disabled-password --home $GIT git
+adduser --disabled-login --ingroup git --gecos 'gitlab' gitlab
+
