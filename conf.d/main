@@ -39,3 +39,7 @@ tar -zxf $SRC/rubygems-*.tgz -C $SRC
 cd $SRC/rubygems-*
 ruby setup.rb
 
+# install gems
+cd $SRC/gems
+gem install --local --no-rdoc --no-ri *.gem
+
