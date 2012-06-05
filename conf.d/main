@@ -62,3 +62,17 @@ EOF"
 exec_git "$GIT/gitolite/src/gl-system-install"
 exec_git "sed -i 's/0077/0007/g' $GIT/share/gitolite/conf/example.gitolite.rc"
 
+# setup gitlab ssh related and permissions
+exec_gitlab "ssh-keygen -q -N '' -t rsa -f $GITLAB/.ssh/id_rsa"
+exec_gitlab "cat >$GITLAB/.ssh/config<<EOF
+Host localhost
+    StrictHostKeyChecking no
+EOF"
+
+cp $GITLAB/.ssh/id_rsa.pub $GIT/gitlab.pub
+chmod 777 $GIT/gitlab.pub
+exec_git "gl-setup -q $GIT/gitlab.pub"
+
+chmod -R g+rwX $GIT/repositories/
+chown -R git:git $GIT/repositories/
+
