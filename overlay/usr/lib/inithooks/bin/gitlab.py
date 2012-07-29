@@ -5,7 +5,7 @@ Option:
     --pass=     unless provided, will ask interactively
     --email=    unless provided, will ask interactively
     --domain=   unless provided, will ask interactively
-                DEFAULT=git.example.com
+                DEFAULT=www.example.com
 """
 
 import re
@@ -25,7 +25,7 @@ def usage(s=None):
     print >> sys.stderr, __doc__
     sys.exit(1)
 
-DEFAULT_DOMAIN="git.example.com"
+DEFAULT_DOMAIN="www.example.com"
 
 def main():
     try:

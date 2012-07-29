@@ -6,7 +6,7 @@ DB_PASS=$(mcookie)
 
 ADMIN_MAIL=admin@example.com
 ADMIN_PASS=turnkey
-DOMAIN=git.example.com
+DOMAIN=www.example.com
 
 GIT=/home/git
 GITLAB=/home/gitlab
