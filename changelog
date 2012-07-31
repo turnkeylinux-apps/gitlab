@@ -1,0 +1,46 @@
+turnkey-gitlab-12.0 (1) turnkey; urgency=low
+
+  * Initial public release of TurnKey GitLab, based on TKLPatch submitted
+    by Adrian Moya.
+
+  * GitLab related:
+
+    - GitLab, Gitolite, Ruby1.9, RubyGems and all other required components
+      installed from latest upstream versions.
+
+    - Set GitLab admin password and email on firstboot (convenience, security).
+    - Set GitLab domain to serve on first boot (convenience).
+    - Pre-configured to use MySQL (recommended for production).
+    - Includes Nginx pre-configured to proxy to unicorn daemon, with SSL
+      support out of the box (performance, security).
+
+  * Regenerates all secrets during installation / firstboot (security).
+
+  * MySQL related:
+
+    - Set MySQL root password on firstboot (convenience, security).
+    - Force MySQL to use Unicode/UTF8.
+
+  * Includes postfix MTA (bound to localhost) for sending of email (e.g.
+    password recovery). Also includes webmin postfix module for convenience.
+
+  * Major component versions
+
+    git-core            1:1.7.2.5-3
+    gitlab              2.5.0 (upstream archive)
+    gitlabhq-gitolite   2.2-11 (upstream archive)
+    ruby                1.9.2 (upstream archive)
+    rubygems            1.8.24 (upstream archive)
+    python-passlib      1.5.3-1~bpo60+1 (backported package)
+
+    nginx               0.7.67-3+squeeze2
+    redis-server        2:1.2.6-1
+    mysql-server        5.1.63-0+squeeze1
+    sqlite3             3.7.3-1
+    build-essential     11.5
+
+  * Note: Please refer to turnkey-core's changelog for changes common to all
+    appliances. Here we only describe changes specific to this appliance.
+
+ -- Alon Swartz <alon@turnkeylinux.org>  Wed, 01 Aug 2012 08:00:00 +0200
+
