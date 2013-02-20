@@ -29,6 +29,5 @@ libreadline5-dev
 postfix
 webmin-postfix
 
-curl
 sudo
 
