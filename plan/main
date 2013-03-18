@@ -2,8 +2,6 @@
 
 nginx
 
-redis-server
-
 mysql-server
 libmysqlclient-dev
 libmysql++-dev

@@ -1,0 +1,30 @@
+#!/bin/bash -ex
+# required environment variables: CODENAME
+
+fatal() {
+    echo "[$(basename $0)] fatal: $@" 1>&2
+    exit 1
+}
+
+NAME="squeeze-backports"
+PACKAGES="redis-server"
+
+[ "$CODENAME" == "squeeze" ] || fatal "CODENAME is not squeeze"
+
+cat >/etc/apt/sources.list.d/$NAME.list<<EOF
+deb http://backports.debian.org/debian-backports $NAME main
+EOF
+
+cat >/etc/apt/preferences.d/$NAME<<EOF
+Package: *
+Pin: release a=$NAME
+Pin-Priority: 100
+
+Package: $PACKAGES
+Pin: release a=$NAME
+Pin-Priority: 500
+EOF
+
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get --force-yes --assume-yes install $PACKAGES
+
