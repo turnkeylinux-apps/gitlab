@@ -12,11 +12,12 @@ import re
 import sys
 import getopt
 
-from passlib.hash import bcrypt
+import bcrypt
 
 from dialog_wrapper import Dialog
 from mysqlconf import MySQL
-from executil import system
+from executil import ExecError, system
+
 
 def usage(s=None):
     if s:
@@ -26,6 +27,9 @@ def usage(s=None):
     sys.exit(1)
 
 DEFAULT_DOMAIN="www.example.com"
+
+def system_github(cmd):
+    system("sudo -u gitlab -H sh -c", "cd /home/gitlab/gitlab; %s" % cmd)
 
 def main():
     try:
@@ -74,32 +78,27 @@ def main():
     if domain == "DEFAULT":
         domain = DEFAULT_DOMAIN
 
-    hashpass = bcrypt.encrypt(password, rounds=10)
+    salt = bcrypt.gensalt(10)
+    hash = bcrypt.hashpw(password, salt)
 
     m = MySQL()
-    m.execute('UPDATE gitlab_production.users SET email=\"%s\" WHERE name=\"Administrator\";' % email)
-    m.execute('UPDATE gitlab_production.users SET encrypted_password=\"%s\" WHERE name=\"Administrator\";' % hashpass)
+    m.execute('UPDATE gitlab_production.users SET email=\"%s\" WHERE username=\"admin\";' % email)
+    m.execute('UPDATE gitlab_production.users SET encrypted_password=\"%s\" WHERE username=\"admin\";' % hash)
 
-    new = []
     config = "/home/gitlab/gitlab/config/gitlab.yml"
-    for s in file(config).readlines():
-        s = s.rstrip()
-        s = re.sub("from: (.*)", "from: %s" % email, s)
-        if not "host: localhost" in s:
-            s = re.sub("host: (.*)", "host: %s" % domain, s)
-        new.append(s)
-    fh = file(config, "w")
-    print >> fh, "\n".join(new)
-    fh.close()
-    system("chown gitlab:git %s" % config)
+    system("sed -i \"s|^  host:.*|  host: %s|\" %s" % (domain, config))
+    system("sed -i \"s|^  ssh_host:.*|  ssh_host: %s|\" %s" % (domain, config))
+    system("sed -i \"s|^  email_from:.*|  email_from: %s|\" %s" % (email, config))
 
-    system("/etc/init.d/gitlab stop >/dev/null 2>&1")
-    system("/etc/init.d/ssh start")
-    system("/etc/init.d/redis-server start")
-    system("cd /home/gitlab/gitlab; sudo -u gitlab bundle exec rake gitlab:app:enable_automerge RAILS_ENV=production")
-    system("/etc/init.d/ssh stop")
-    system("/etc/init.d/redis-server stop")
+    system_github("git config --global user.email %s" % email)
+    system_github("bundle exec rake gitlab:env:info RAILS_ENV=production")
 
+    # restart gitlab if its running
+    try:
+        system("/etc/init.d/gitlab status")
+        system("/etc/init.d/gitlab restart")
+    except ExecError:
+        pass
 
 if __name__ == "__main__":
     main()
