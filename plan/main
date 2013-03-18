@@ -25,6 +25,11 @@ libxml2-dev
 libxslt1-dev
 libcurl4-openssl-dev
 libreadline5-dev
+libgdbm-dev
+libncurses5-dev
+libffi-dev
+zlib1g-dev
+libyaml-dev
 
 postfix
 webmin-postfix
