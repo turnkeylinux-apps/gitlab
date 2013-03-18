@@ -1,0 +1,7 @@
+#!/bin/bash -ex
+
+source /usr/local/src/gitlab.conf
+
+# cleanup
+rm -rf $SRC/*
+

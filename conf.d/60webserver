@@ -1,0 +1,11 @@
+#!/bin/bash -ex
+
+source /usr/local/src/gitlab.conf
+
+# setup unicorn and nginx
+cd $GITLAB_HOME/gitlab/config
+mv unicorn.rb.example unicorn.rb
+
+rm /etc/nginx/sites-enabled/default
+ln -s /etc/nginx/sites-available/gitlab /etc/nginx/sites-enabled/gitlab
+

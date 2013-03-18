@@ -1,0 +1,118 @@
+#!/bin/bash -ex
+
+source /usr/local/src/gitlab.conf
+
+# download and checkout specified version
+URL="https://github.com/gitlabhq/gitlabhq.git"
+
+[ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
+exec_gitlab "git clone $URL $GITLAB_HOME/gitlab"
+unset HTTP_PROXY
+
+cd $GITLAB_HOME/gitlab
+exec_gitlab "git checkout $VERSION_GITLAB"
+
+# configure settings
+exec_gitlab "cat >$GITLAB_HOME/gitlab/config/gitlab.yml<<EOF
+# Gitlab application config file
+
+gitlab:
+  host: $DOMAIN
+  port: 80
+  https: false
+  email_from: $ADMIN_MAIL
+  default_projects_limit: 10
+  signup_enabled: false
+
+gravatar:
+  enabled: true
+
+satellites:
+  path: /home/gitlab/gitlab-satellites/
+
+gitolite:
+  admin_uri: $GIT_USER@localhost:gitolite-admin
+  repos_path: $GIT_HOME/repositories/
+  hooks_path: $GIT_HOME/.gitolite/hooks/
+  admin_key: gitlab
+  upload_pack: true
+  receive_pack: true
+  ssh_user: $GIT_USER
+  ssh_host: $DOMAIN
+
+git:
+  bin_path: /usr/bin/git
+  max_size: 5242880 # 5.megabytes
+  timeout: 10
+
+EOF"
+
+exec_gitlab "mkdir -p $GITLAB_HOME/gitlab-satellites"
+
+exec_gitlab "cat >$GITLAB_HOME/gitlab/config/database.yml<<EOF
+production:
+  adapter: mysql2
+  encoding: utf8
+  reconnect: false
+  database: $DB_NAME
+  username: $DB_USER
+  password: $DB_PASS
+  pool: 5
+
+EOF"
+chmod 640 $GITLAB_HOME/gitlab/config/database.yml
+
+exec_gitlab "cat >$GITLAB_HOME/gitlab/db/fixtures/production/001_admin.rb<<EOF
+admin = User.create(
+  :email => \"$ADMIN_MAIL\",
+  :name => \"Administrator\",
+  :username => \"admin\",
+  :password => \"$ADMIN_PASS\",
+  :password_confirmation => \"$ADMIN_PASS\"
+)
+
+admin.projects_limit = 10000
+admin.admin = true
+admin.save!
+
+EOF"
+
+exec_gitlab "cat >>$GITLAB_HOME/gitlab/app/views/layouts/application.html.haml<<EOF
+<div id='turnkey-credit' style='font-size:10px;text-align:center;padding-top:20px'><a href='http://www.turnkeylinux.org/gitlab'>GitLab Appliance</a> - Powered by <a href='http://www.turnkeylinux.org'>TurnKey Linux</a></div>
+EOF"
+
+# set permissions
+chown -R $GITLAB_USER $GITLAB_HOME/gitlab/log
+chown -R $GITLAB_USER $GITLAB_HOME/gitlab/tmp
+chmod -R u+rwX $GITLAB_HOME/gitlab/log
+chmod -R u+rwX $GITLAB_HOME/gitlab/tmp
+
+# setup gitlab hooks
+cp $GITLAB_HOME/gitlab/lib/hooks/post-receive $GIT_HOME/.gitolite/hooks/common/
+chown $GIT_USER:$GIT_USER $GIT_HOME/.gitolite/hooks/common/post-receive
+
+# recommended in installation guide
+ln -s /usr/bin/python /usr/local/bin/python2
+
+# install
+/etc/init.d/ssh start
+sed -i "/ask_to_continue/ s/^/#/" $GITLAB_HOME/gitlab/lib/tasks/gitlab/setup.rake
+
+[ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
+cd $GITLAB_HOME/gitlab
+exec_gitlab "bundle install --deployment --without development test postgres"
+exec_gitlab "bundle exec rake gitlab:setup RAILS_ENV=production"
+exec_gitlab "bundle exec rake sidekiq:start RAILS_ENV=production"
+exec_gitlab "bundle exec rake gitlab:env:info RAILS_ENV=production"
+unset HTTP_PROXY
+
+sed -i "/ask_to_continue/ s/^#//" $GITLAB_HOME/gitlab/lib/tasks/gitlab/setup.rake
+
+# stop running services
+/etc/init.d/ssh stop
+/etc/init.d/redis-server stop
+/etc/init.d/mysql stop
+
+## TESTING
+#sudo -u gitlab -H bundle exec rake gitlab:check RAILS_ENV=production
+

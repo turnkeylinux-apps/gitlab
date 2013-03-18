@@ -1,0 +1,26 @@
+#!/bin/bash -ex
+
+source /usr/local/src/gitlab.conf
+
+## git and gitolite
+# create user for git and gitolite
+adduser --system --shell /bin/sh --group --disabled-password \
+    --home $GIT_HOME $GIT_USER
+
+## gitlab
+# create user for gitlab
+adduser --disabled-login --ingroup $GIT_USER --gecos 'gitlab' $GITLAB_USER
+
+# create sshkey for gitlab (public part will be used by gitolite)
+exec_gitlab "ssh-keygen -q -N '' -t rsa -f $GITLAB_HOME/.ssh/id_rsa"
+
+# localhost keys will change on secret regeneration
+exec_gitlab "cat >$GITLAB_HOME/.ssh/config<<EOF
+Host localhost
+    StrictHostKeyChecking no
+EOF"
+
+# set gitlab's git name and email
+exec_gitlab "git config --global user.name GitLab"
+exec_gitlab "git config --global user.email $ADMIN_MAIL"
+
