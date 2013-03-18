@@ -1,0 +1,10 @@
+#!/bin/bash -ex
+
+source /usr/local/src/gitlab.conf
+
+URL="https://raw.github.com/gitlabhq/gitlab-recipes/4-2-stable/init.d/gitlab"
+download $URL /etc/init.d
+chmod +x /etc/init.d/gitlab
+
+update-rc.d gitlab defaults 21
+
