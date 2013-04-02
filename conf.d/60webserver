@@ -3,7 +3,7 @@
 source /usr/local/src/gitlab.conf
 
 # setup unicorn and nginx
-cd $GITLAB_HOME/gitlab/config
+cd $GIT_HOME/gitlab/config
 mv unicorn.rb.example unicorn.rb
 
 rm /etc/nginx/sites-enabled/default

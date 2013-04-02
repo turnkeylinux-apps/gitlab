@@ -8,7 +8,6 @@ Option:
                 DEFAULT=www.example.com
 """
 
-import re
 import sys
 import getopt
 
@@ -29,7 +28,7 @@ def usage(s=None):
 DEFAULT_DOMAIN="www.example.com"
 
 def system_github(cmd):
-    system("sudo -u gitlab -H sh -c", "cd /home/gitlab/gitlab; %s" % cmd)
+    system("sudo -u git -H sh -c", "cd /home/git/gitlab; %s" % cmd)
 
 def main():
     try:
@@ -85,10 +84,9 @@ def main():
     m.execute('UPDATE gitlab_production.users SET email=\"%s\" WHERE username=\"admin\";' % email)
     m.execute('UPDATE gitlab_production.users SET encrypted_password=\"%s\" WHERE username=\"admin\";' % hash)
 
-    config = "/home/gitlab/gitlab/config/gitlab.yml"
-    system("sed -i \"s|^  host:.*|  host: %s|\" %s" % (domain, config))
-    system("sed -i \"s|^  ssh_host:.*|  ssh_host: %s|\" %s" % (domain, config))
-    system("sed -i \"s|^  email_from:.*|  email_from: %s|\" %s" % (email, config))
+    config = "/home/git/gitlab/config/gitlab.yml"
+    system("sed -i \"s|host:.*|host: %s|\" %s" % (domain, config))
+    system("sed -i \"s|email_from:.*|email_from: %s|\" %s" % (email, config))
 
     system_github("git config --global user.email %s" % email)
     system_github("bundle exec rake gitlab:env:info RAILS_ENV=production")
