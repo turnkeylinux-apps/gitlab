@@ -1,3 +1,24 @@
+turnkey-gitlab-12.1 (1) turnkey; urgency=low
+
+  * Gitlab:
+
+    - Upgraded to latest major version of GitLab - cloned from upstream
+      git repo as recommended providing an easy upgrade path.
+    - Replaced gitolite with gitlab-shell, also cloned from upstream
+      providing easy upgrade path.
+
+  * Hardcoded component versions:
+
+    gitlab                  5-0-stable (git branch)
+    gitlab-shell            v1.1.0 (git branch)
+    ruby                    1.9.3-p327
+    charlock_holmes gem     0.6.9
+
+  * Note: Please refer to turnkey-core's changelog for changes common to all
+    appliances. Here we only describe changes specific to this appliance.
+
+ -- Alon Swartz <alon@turnkeylinux.org>  Sun, 07 Apr 2013 08:00:00 +0200
+
 turnkey-gitlab-12.0 (1) turnkey; urgency=low
 
   * Initial public release of TurnKey GitLab, based on TKLPatch submitted
