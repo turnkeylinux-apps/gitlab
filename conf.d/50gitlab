@@ -38,6 +38,7 @@ production: &base
     hooks_path: $GIT_HOME/gitlab-shell/hooks/
     upload_pack: true
     receive_pack: true
+    ssh_port: 22
 
   git:
     bin_path: /usr/bin/git
@@ -89,6 +90,11 @@ chmod -R u+rwX $GIT_HOME/gitlab/tmp
 # recommended in installation guide
 ln -s /usr/bin/python /usr/local/bin/python2
 
+# temporarily change ssh port as to not conflict with build system
+sed -i "s|Port 22|Port 2222|" /etc/ssh/sshd_config
+sed -i "s|Port 22|Port 2222|" $GIT_HOME/.ssh/config
+sed -i "s|ssh_port: 22|ssh_port: 2222|" $GIT_HOME/gitlab/config/gitlab.yml
+
 # install
 [ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
 cd $GIT_HOME/gitlab
@@ -104,6 +110,11 @@ unset HTTP_PROXY
 /etc/init.d/ssh stop
 /etc/init.d/redis-server stop
 /etc/init.d/mysql stop
+
+# change ssh port configuration back
+sed -i "s|Port 2222|Port 22|" /etc/ssh/sshd_config
+sed -i "s|port 2222|port 22|" $GIT_HOME/.ssh/config
+sed -i "s|ssh_port: 2222|ssh_port: 22|" $GIT_HOME/gitlab/config/gitlab.yml
 
 ## TESTING
 #sudo -u git -H bundle exec rake gitlab:check RAILS_ENV=production
