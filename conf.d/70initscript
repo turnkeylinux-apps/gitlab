@@ -2,7 +2,7 @@
 
 source /usr/local/src/gitlab.conf
 
-URL="https://raw.github.com/gitlabhq/gitlab-recipes/master/init.d/gitlab"
+URL="https://raw.github.com/gitlabhq/gitlab-recipes/$VERSION_GITLAB/init.d/gitlab"
 download $URL /etc/init.d
 chmod +x /etc/init.d/gitlab
 
