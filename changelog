@@ -7,7 +7,7 @@ turnkey-gitlab-12.1 (1) turnkey; urgency=low
     - Replaced gitolite with gitlab-shell, also cloned from upstream
       providing easy upgrade path.
 
-  * Hardcoded component versions:
+  * Upstream source component versions:
 
     gitlab                  5-0-stable (git branch)
     gitlab-shell            v1.1.0 (git branch)
