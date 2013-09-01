@@ -22,7 +22,7 @@ libssl-dev
 libxml2-dev
 libxslt1-dev
 libcurl4-openssl-dev
-libreadline5-dev
+libreadline-gplv2-dev
 libgdbm-dev
 libncurses5-dev
 libffi-dev
