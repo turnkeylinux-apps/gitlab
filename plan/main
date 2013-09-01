@@ -1,6 +1,7 @@
 #include <turnkey/base>
 
 nginx
+redis-server
 
 mysql-server
 libmysqlclient-dev
