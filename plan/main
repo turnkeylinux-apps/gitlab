@@ -16,7 +16,7 @@ checkinstall
 
 python-dev
 python-pygments
-python-bcrypt
+python-pip
 
 libicu-dev
 libssl-dev
