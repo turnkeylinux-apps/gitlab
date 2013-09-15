@@ -101,6 +101,7 @@ cd $GIT_HOME/gitlab
 exec_git "bundle install --deployment --without development test postgres"
 
 /etc/init.d/ssh start
+/etc/init.d/redis-server start
 exec_git "bundle exec rake force=yes gitlab:setup RAILS_ENV=production"
 exec_git "bundle exec rake sidekiq:start RAILS_ENV=production"
 exec_git "bundle exec rake gitlab:env:info RAILS_ENV=production"
