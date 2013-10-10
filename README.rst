@@ -11,8 +11,8 @@ and on top of that:
 
 - GitLab configurations:
    
-   - GitLab, Ruby1.9, RubyGems and all other required components
-     installed from latest upstream versions.
+   - GitLab, RubyGems and all other required components installed from
+     latest upstream versions.
    - Set GitLab admin password and email on firstboot (convenience,
      security).
    - Set GitLab domain to serve on first boot (convenience).
