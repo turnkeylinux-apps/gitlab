@@ -1,4 +1,4 @@
-root /home/gitlab/gitlab/public;
+root /home/git/gitlab/public;
 
 access_log /var/log/nginx/gitlab.access.log;
 error_log /var/log/nginx/gitlab.error.log;
