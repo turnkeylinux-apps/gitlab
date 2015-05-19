@@ -11,10 +11,7 @@ Option:
 import sys
 import getopt
 
-import bcrypt
-
 from dialog_wrapper import Dialog
-from mysqlconf import MySQL
 from executil import ExecError, system
 
 
@@ -27,7 +24,7 @@ def usage(s=None):
 
 DEFAULT_DOMAIN="www.example.com"
 
-def system_github(cmd):
+def system_gitlab(cmd):
     system("sudo -u git -H sh -c", "cd /home/git/gitlab; %s" % cmd)
 
 def main():
@@ -77,24 +74,26 @@ def main():
     if domain == "DEFAULT":
         domain = DEFAULT_DOMAIN
 
-    salt = bcrypt.gensalt(10)
-    hash = bcrypt.hashpw(password, salt)
-
-    m = MySQL()
-    m.execute('UPDATE gitlab_production.users SET email=\"%s\" WHERE username=\"admin\";' % email)
-    m.execute('UPDATE gitlab_production.users SET encrypted_password=\"%s\" WHERE username=\"admin\";' % hash)
+    system_gitlab("""echo '\
+        conf.return_format = ""; \
+        ActiveRecord::Base.logger.level = 1; \
+        u = User.find_by_id(1); \
+        u.password = "%s"; \
+        u.email = "%s"; \
+        u.save!; \
+    ' | RAILS_ENV=production bundle exec rails c 2>&1 1>/dev/null""" % (password, email))
 
     config = "/home/git/gitlab/config/gitlab.yml"
     system("sed -i \"s|host:.*|host: %s|\" %s" % (domain, config))
     system("sed -i \"s|email_from:.*|email_from: %s|\" %s" % (email, config))
 
-    system_github("git config --global user.email %s" % email)
-    system_github("bundle exec rake gitlab:env:info RAILS_ENV=production")
+    system_gitlab("git config --global user.email %s" % email)
+    system_gitlab("bundle exec rake gitlab:env:info RAILS_ENV=production")
 
     # restart gitlab if its running
     try:
-        system("/etc/init.d/gitlab status")
-        system("/etc/init.d/gitlab restart")
+        system("systemctl restart gitlab-unicorn")
+        system("systemctl restart gitlab-sidekiq")
     except ExecError:
         pass
 
