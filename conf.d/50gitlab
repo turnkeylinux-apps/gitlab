@@ -73,6 +73,7 @@ admin = User.create(
 
 admin.projects_limit = 10000
 admin.admin = true
+admin.confirmed_at = admin.confirmation_sent_at
 admin.save!
 
 EOF"
