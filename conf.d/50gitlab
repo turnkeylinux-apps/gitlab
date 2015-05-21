@@ -66,13 +66,14 @@ exec_git "cat >$GIT_HOME/gitlab/db/fixtures/production/001_admin.rb<<EOF
 admin = User.create(
   :email => \"$ADMIN_MAIL\",
   :name => \"Administrator\",
-  :username => \"admin\",
+  :username => \"gitlab-admin\",
   :password => \"$ADMIN_PASS\",
   :password_confirmation => \"$ADMIN_PASS\"
 )
 
 admin.projects_limit = 10000
 admin.admin = true
+admin.confirmed_at = admin.confirmation_sent_at
 admin.save!
 
 EOF"

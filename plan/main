@@ -11,6 +11,9 @@ webmin-mysql
 sqlite3
 libsqlite3-dev
 
+cmake
+pkg-config
+libkrb5-dev
 build-essential
 checkinstall
 
@@ -38,3 +41,7 @@ webmin-postfix
 
 sudo
 
+// JS runtime for ExecJS
+nodejs
+
+systemd
