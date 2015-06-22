@@ -22,7 +22,6 @@ ruby-dev
 
 python-dev
 python-pygments
-python-pip
 
 libicu-dev
 libssl-dev

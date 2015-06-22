@@ -1,4 +1,0 @@
-#!/bin/bash -ex
-
-pip install py-bcrypt
-
