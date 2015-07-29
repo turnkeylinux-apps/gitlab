@@ -35,9 +35,6 @@ libffi-dev
 zlib1g-dev
 libyaml-dev
 
-postfix
-webmin-postfix
-
 sudo
 
 // JS runtime for ExecJS
