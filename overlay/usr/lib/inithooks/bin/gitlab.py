@@ -12,6 +12,7 @@ import sys
 import getopt
 import inithooks_cache
 
+
 from dialog_wrapper import Dialog
 from executil import ExecError, system
 
@@ -76,6 +77,8 @@ def main():
 
     if domain == "DEFAULT":
         domain = DEFAULT_DOMAIN
+
+    inithooks_cache.write('APP_DOMAIN', domain)
 
     system_gitlab("""echo '\
         conf.return_format = ""; \
