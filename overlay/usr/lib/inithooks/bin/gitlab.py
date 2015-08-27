@@ -10,6 +10,8 @@ Option:
 
 import sys
 import getopt
+import inithooks_cache
+
 
 from dialog_wrapper import Dialog
 from executil import ExecError, system
@@ -62,6 +64,8 @@ def main():
             "Enter email address for the GitLab 'admin' account.",
             "admin@example.com")
 
+    inithooks_cache.write('APP_EMAIL', email)
+
     if not domain:
         if 'd' not in locals():
             d = Dialog('TurnKey Linux - First boot configuration')
@@ -73,6 +77,8 @@ def main():
 
     if domain == "DEFAULT":
         domain = DEFAULT_DOMAIN
+
+    inithooks_cache.write('APP_DOMAIN', domain)
 
     system_gitlab("""echo '\
         conf.return_format = ""; \
