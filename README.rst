@@ -31,4 +31,4 @@ Credentials *(passwords set at first boot)*
 -  GitLab: username is email set at first boot
 
 .. _GitLab: http://gitlabhq.com
-.. _TurnKey Core: http://www.turnkeylinux.org/core
+.. _TurnKey Core: https://www.turnkeylinux.org/core
