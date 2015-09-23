@@ -88,6 +88,11 @@ chown -R $GIT_USER $GIT_HOME/gitlab/tmp
 chmod -R u+rwX $GIT_HOME/gitlab/log
 chmod -R u+rwX $GIT_HOME/gitlab/tmp
 
+chmod -R ug+rwX,o-rwx $GIT_HOME/repositories
+chmod -R ug-s $GIT_HOME/repositories
+chmod u+rwx,g=rx,o-rwx $GIT_HOME/gitlab-satellites
+find $GIT_HOME/repositories -type d -print0 | xargs -0 chmod g+s
+
 # recommended in installation guide
 ln -s /usr/bin/python /usr/local/bin/python2
 
