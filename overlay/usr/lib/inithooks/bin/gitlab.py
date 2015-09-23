@@ -86,15 +86,15 @@ def main():
         u = User.find_by_id(1); \
         u.password = "%s"; \
         u.email = "%s"; \
+        u.skip_reconfirmation!; \
         u.save!; \
-    ' | RAILS_ENV=production bundle exec rails c 2>&1 1>/dev/null""" % (password, email))
+    ' | RAILS_ENV=production bundle exec rails c 1>/dev/null""" % (password, email))
 
     config = "/home/git/gitlab/config/gitlab.yml"
     system("sed -i \"s|host:.*|host: %s|\" %s" % (domain, config))
     system("sed -i \"s|email_from:.*|email_from: %s|\" %s" % (email, config))
 
     system_gitlab("git config --global user.email %s" % email)
-    system_gitlab("bundle exec rake gitlab:env:info RAILS_ENV=production")
 
     # restart gitlab if its running
     try:
