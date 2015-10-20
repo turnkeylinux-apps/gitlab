@@ -27,7 +27,7 @@ and on top of that:
 Credentials *(passwords set at first boot)*
 -------------------------------------------
 
--  Webmin, SSH, MySQL, phpMyAdmin: username **root**
+-  Webmin, SSH, MySQL, Adminer: username **root**
 -  GitLab: username is email set at first boot
 
 .. _GitLab: http://gitlabhq.com
