@@ -53,7 +53,8 @@ def main():
         d = Dialog('TurnKey Linux - First boot configuration')
         password = d.get_password(
             "GitLab Password",
-            "Enter new password for the GitLab 'admin' account.")
+            "Enter new password for the GitLab 'admin' account.",
+            pass_req = 8)
 
     if not email:
         if 'd' not in locals():
