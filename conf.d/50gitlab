@@ -79,7 +79,7 @@ admin.save!
 EOF"
 
 exec_git "cat >>$GIT_HOME/gitlab/app/views/layouts/application.html.haml<<EOF
-<div id='turnkey-credit' style='font-size:10px;text-align:center;padding-top:20px'><a href='http://www.turnkeylinux.org/gitlab'>GitLab Appliance</a> - Powered by <a href='http://www.turnkeylinux.org'>TurnKey Linux</a></div>
+<div id='turnkey-credit' style='font-size:10px;text-align:center;padding-top:20px'><a href='https://www.turnkeylinux.org/gitlab'>GitLab Appliance</a> - Powered by <a href='https://www.turnkeylinux.org'>TurnKey Linux</a></div>
 EOF"
 
 # set permissions
