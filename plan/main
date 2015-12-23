@@ -39,5 +39,3 @@ sudo
 
 // JS runtime for ExecJS
 nodejs
-
-systemd
