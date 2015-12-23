@@ -97,10 +97,9 @@ def main():
 
     system_gitlab("git config --global user.email %s" % email)
 
-    # restart gitlab if its running
+    # restart gitlab if it's running
     try:
-        system("systemctl restart gitlab-unicorn")
-        system("systemctl restart gitlab-sidekiq")
+        system("service gitlab restart")
     except ExecError:
         pass
 
