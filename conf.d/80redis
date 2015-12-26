@@ -1,0 +1,13 @@
+#!/bin/bash -ex
+
+source /usr/local/src/gitlab.conf
+
+# make Redis listen on Unix socket
+echo 'include /etc/redis/unixsocket.conf' >> /etc/redis/redis.conf
+
+# allow git to use redis' socket
+usermod -a -G redis $GIT_USER
+
+for i in development test production; do
+    echo "$i: unix:/var/run/redis/redis.sock" >> /home/git/gitlab/config/resque.yml
+done
