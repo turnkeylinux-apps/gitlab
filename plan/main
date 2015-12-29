@@ -39,3 +39,5 @@ sudo
 
 // JS runtime for ExecJS
 nodejs
+
+python-bcrypt
