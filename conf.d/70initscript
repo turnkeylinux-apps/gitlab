@@ -2,15 +2,9 @@
 
 source /usr/local/src/gitlab.conf
 
-download 'https://gitlab.com/gitlab-org/gitlab-recipes/raw/master/init/systemd/gitlab-unicorn.service' /etc/systemd/system
-download 'https://gitlab.com/gitlab-org/gitlab-recipes/raw/master/init/systemd/gitlab-sidekiq.service' /etc/systemd/system
+cp /home/git/gitlab/lib/support/init.d/gitlab /etc/init.d/gitlab
+chown root:root /etc/init.d/gitlab
 
-# fix unit files for TKL
-for i in unicorn sidekiq; do
-    sed -i '{
-        /bundle/ s#/usr/bin#/usr/local/bin#g;
-        /redis/  s#redis#redis-server#g
-    }' /etc/systemd/system/gitlab-$i.service
-    chmod +x /etc/systemd/system/gitlab-$i.service
-    systemctl enable gitlab-$i.service
-done
+update-rc.d gitlab defaults
+update-rc.d gitlab enable
+

@@ -2,6 +2,8 @@
 
 source /usr/local/src/gitlab.conf
 
+exec_git 'cd ~/gitlab && RAILS_ENV=production bundle exec rake assets:precompile'
+
 # cleanup
 rm -rf $SRC/*
 

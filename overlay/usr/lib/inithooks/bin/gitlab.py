@@ -11,7 +11,8 @@ Option:
 import sys
 import getopt
 import inithooks_cache
-
+import bcrypt
+from mysqlconf import MySQL
 
 from dialog_wrapper import Dialog
 from executil import ExecError, system
@@ -81,15 +82,11 @@ def main():
 
     inithooks_cache.write('APP_DOMAIN', domain)
 
-    system_gitlab("""echo '\
-        conf.return_format = ""; \
-        ActiveRecord::Base.logger.level = 1; \
-        u = User.find_by_id(1); \
-        u.password = "%s"; \
-        u.email = "%s"; \
-        u.skip_reconfirmation!; \
-        u.save!; \
-    ' | RAILS_ENV=production bundle exec rails c 1>/dev/null""" % (password, email))
+    salt = bcrypt.gensalt(10)
+    hash = bcrypt.hashpw(password, salt)
+
+    m = MySQL()
+    m.execute('UPDATE gitlab_production.users SET email=\"%s\", encrypted_password=\"%s\", confirmation_sent_at=(NOW()) AND confirmed_at=(NOW() + INTERVAL 1 SECOND) WHERE username="gitlab-admin";' % (email, hash))
 
     config = "/home/git/gitlab/config/gitlab.yml"
     system("sed -i \"s|host:.*|host: %s|\" %s" % (domain, config))
@@ -97,10 +94,9 @@ def main():
 
     system_gitlab("git config --global user.email %s" % email)
 
-    # restart gitlab if its running
+    # restart gitlab if it's running
     try:
-        system("systemctl restart gitlab-unicorn")
-        system("systemctl restart gitlab-sidekiq")
+        system("service gitlab restart")
     except ExecError:
         pass
 
