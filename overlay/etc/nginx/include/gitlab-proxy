@@ -15,7 +15,7 @@ location @gitlab {
     proxy_set_header X-NginX-Proxy true;
     proxy_set_header X-Forwarded-Proto $scheme;
 
-    proxy_pass http://unix:/home/git/gitlab/tmp/sockets/gitlab.socket;
+    proxy_pass http://gitlab;
     proxy_redirect off;
     proxy_buffering off;
 }
