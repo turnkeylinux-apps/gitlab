@@ -1,3 +1,7 @@
+upstream gitlab {
+    server unix:/home/git/gitlab/tmp/sockets/gitlab.socket fail_timeout=0;
+}
+
 server {
     listen 0.0.0.0:80;
     include /etc/nginx/include/gitlab-proxy;
