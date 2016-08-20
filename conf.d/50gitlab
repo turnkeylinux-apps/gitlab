@@ -85,7 +85,7 @@ EOF"
 
 
 # fetch and compile gitlab-workhorse
-URL_WORKHORSE = "https://gitlab.com/gitlab-org/gitlab-workhorse"
+URL_WORKHORSE="https://gitlab.com/gitlab-org/gitlab-workhorse"
 exec_git "git clone $URL_WORKHORSE $GIT_HOME/gitlab-workhorse"
 exec_git "make -C $GIT_HOME/gitlab-workhorse"
 
