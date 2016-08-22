@@ -82,6 +82,14 @@ exec_git "cat >>$GIT_HOME/gitlab/app/views/layouts/application.html.haml<<EOF
 <div id='turnkey-credit' style='font-size:10px;text-align:center;padding-top:20px'><a href='https://www.turnkeylinux.org/gitlab'>GitLab Appliance</a> - Powered by <a href='https://www.turnkeylinux.org'>TurnKey Linux</a></div>
 EOF"
 
+
+
+# fetch and compile gitlab-workhorse
+URL_WORKHORSE = "https://gitlab.com/gitlab-org/gitlab-workhorse"
+exec_git "git clone $URL_WORKHORSE $GIT_HOME/gitlab-workhorse"
+exec_git "make -C $GIT_HOME/gitlab-workhorse"
+
+
 # set permissions
 chown -R $GIT_USER $GIT_HOME/gitlab/log
 chown -R $GIT_USER $GIT_HOME/gitlab/tmp
