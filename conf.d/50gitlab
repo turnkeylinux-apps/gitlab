@@ -96,6 +96,7 @@ chown -R $GIT_USER $GIT_HOME/gitlab/tmp
 chmod -R u+rwX $GIT_HOME/gitlab/log
 chmod -R u+rwX $GIT_HOME/gitlab/tmp
 
+mkdir -p $GIT_HOME/repositories
 chmod -R ug+rwX,o-rwx $GIT_HOME/repositories
 chmod -R ug-s $GIT_HOME/repositories
 chmod u+rwx,g=rx,o-rwx $GIT_HOME/gitlab-satellites
