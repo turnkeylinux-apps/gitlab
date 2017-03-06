@@ -3,7 +3,7 @@
 source /usr/local/src/gitlab.conf
 
 service redis-server start
-exec_git 'cd ~/gitlab && RAILS_ENV=production bundle exec rake assets:precompile'
+exec_git 'cd ~/gitlab && RAILS_ENV=production bundle exec rake assets:precompile webpack:compile'
 service redis-server stop
 
 # cleanup
