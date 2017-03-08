@@ -97,6 +97,7 @@ chmod -R u+rwX $GIT_HOME/gitlab/log
 chmod -R u+rwX $GIT_HOME/gitlab/tmp
 
 mkdir -p $GIT_HOME/repositories
+chown -R $GIT_USER $GIT_HOME/repositories
 chmod -R ug+rwX,o-rwx $GIT_HOME/repositories
 chmod -R ug-s $GIT_HOME/repositories
 chmod u+rwx,g=rx,o-rwx $GIT_HOME/gitlab-satellites
@@ -114,6 +115,7 @@ sed -i "s|ssh_port: 22|ssh_port: 2222|" $GIT_HOME/gitlab/config/gitlab.yml
 [ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
 cd $GIT_HOME/gitlab
 exec_git "bundle install --deployment --without development test postgres"
+exec_git "npm install"
 
 /etc/init.d/ssh start
 /etc/init.d/redis-server start
