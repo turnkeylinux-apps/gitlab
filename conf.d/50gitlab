@@ -1,11 +1,12 @@
 #!/bin/bash -ex
 
 source /usr/local/src/gitlab.conf
+[ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
+
 
 # download and checkout specified version
 URL="https://github.com/gitlabhq/gitlabhq.git"
 
-[ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
 exec_git "git clone $URL $GIT_HOME/gitlab"
 unset HTTP_PROXY
 
@@ -26,12 +27,24 @@ production: &base
     default_projects_limit: 10
     signup_enabled: false
     username_changing_enabled: true
+    gitaly:
+      token: 'turnkey'
 
   gravatar:
     enabled: true
 
   satellites:
     path: $GIT_HOME/gitlab-satellites/
+
+  repositories:
+    # IMPORTANT: None of the path components may be symlink, because
+    # gitlab-shell invokes Dir.pwd inside the repository path and that results
+    # real path not the symlink.
+    storages: # You must have at least a `default` storage path.
+      default:
+        path: /home/git/repositories/
+        gitaly_address: unix:/home/git/gitlab/tmp/sockets/private/gitaly.socket
+
 
   gitlab-shell:
     repos_path: $GIT_HOME/repositories/
@@ -46,7 +59,6 @@ production: &base
     timeout: 10
 
 EOF"
-
 exec_git "mkdir -p $GIT_HOME/gitlab-satellites"
 
 exec_git "cat >$GIT_HOME/gitlab/config/database.yml<<EOF
@@ -96,12 +108,23 @@ chown -R $GIT_USER $GIT_HOME/gitlab/tmp
 chmod -R u+rwX $GIT_HOME/gitlab/log
 chmod -R u+rwX $GIT_HOME/gitlab/tmp
 
+chmod -R u+rwX $GIT_HOME/gitlab/tmp/pids/
+chmod -R u+rwX $GIT_HOME/gitlab/tmp/sockets/
+
+exec_git "mkdir $GIT_HOME/gitlab/public/uploads"
+chmod 0700 $GIT_HOME/gitlab/public/uploads
+chown $GIT_USER $GIT_HOME/gitlab/public
+
+cp $GIT_HOME/gitlab/config/initializers/rack_attack.rb.example $GIT_HOME/gitlab/config/initializers/rack_attack.rb
+
 mkdir -p $GIT_HOME/repositories
 chown -R $GIT_USER $GIT_HOME/repositories
 chmod -R ug+rwX,o-rwx $GIT_HOME/repositories
 chmod -R ug-s $GIT_HOME/repositories
 chmod u+rwx,g=rx,o-rwx $GIT_HOME/gitlab-satellites
 find $GIT_HOME/repositories -type d -print0 | xargs -0 chmod g+s
+
+
 
 # recommended in installation guide
 ln -s /usr/bin/python /usr/local/bin/python2
@@ -111,11 +134,34 @@ sed -i "s|Port 22|Port 2222|" /etc/ssh/sshd_config
 sed -i "s|Port 22|Port 2222|" $GIT_HOME/.ssh/config
 sed -i "s|ssh_port: 22|ssh_port: 2222|" $GIT_HOME/gitlab/config/gitlab.yml
 
+
+
+
+# update DB files to force DYMANIC row - work around Redmine/MariaDBv10.1 bug
+cat > /home/git/gitlab/config/initializers/ar_innodb_row_format.rb <<EOF
+ActiveSupport.on_load :active_record do
+  module ActiveRecord::ConnectionAdapters
+    class AbstractMysqlAdapter
+      def create_table_with_innodb_row_format(table_name, options = {})
+        table_options = options.reverse_merge(:options => 'ENGINE=InnoDB ROW_FORMAT=DYNAMIC')
+
+        create_table_without_innodb_row_format(table_name, table_options) do |td|
+         yield td if block_given?
+        end
+      end
+      alias_method_chain :create_table, :innodb_row_format
+    end
+  end
+end
+EOF
+
+
+
+
 # install
 [ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
 cd $GIT_HOME/gitlab
-exec_git "bundle install --deployment --without development test postgres"
-exec_git "npm install"
+exec_git "bundle install --deployment --without development test postgres aws kerberos"
 
 /etc/init.d/ssh start
 /etc/init.d/redis-server start

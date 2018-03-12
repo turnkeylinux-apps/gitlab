@@ -1,0 +1,36 @@
+#!/bin/bash -ex
+
+source /usr/local/src/gitlab.conf
+[ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
+
+# download and install gitaly
+exec_git "git clone https://gitlab.com/gitlab-org/gitaly.git $GIT_HOME/gitaly"
+cd $GIT_HOME/gitaly
+unset HTTP_PROXY
+exec_git "git fetch --all --tags"
+exec_git "git checkout $VERSION_GITALY"
+exec_git "make"
+exec_git "cp config.toml.example config.toml"
+
+exec_git "cat >$GIT_HOME/gitaly/config.toml<<EOF
+listen_addr = '0.0.0.0:9999'
+
+socket_path = '/home/git/gitlab/tmp/sockets/private/gitaly.socket'
+
+bin_dir = '/home/git/gitaly/'
+
+[[storage]]
+name = 'default'
+path = '/home/git/repositories/'
+
+[gitaly-ruby]
+dir = '/home/git/gitaly/ruby/'
+
+[gitlab-shell]
+dir = '/home/git/gitlab-shell/'
+listen_addr = '0.0.0.0:9999'
+
+EOF"
+
+chmod 0700 $GIT_HOME/gitlab/tmp/sockets/private
+chown git $GIT_HOME/gitlab/tmp/sockets/private

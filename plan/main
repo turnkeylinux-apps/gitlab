@@ -2,14 +2,15 @@
 
 nginx
 redis-server
-
+apt-transport-https
 mysql-server
-libmysqlclient-dev
+default-libmysqlclient-dev
 libmysql++-dev
 webmin-mysql
 
 sqlite3
 libsqlite3-dev
+
 
 cmake
 pkg-config
@@ -24,7 +25,7 @@ python-dev
 python-pygments
 
 libicu-dev
-libssl-dev
+libssl1.0-dev
 libxml2-dev
 libxslt1-dev
 libcurl4-openssl-dev
@@ -34,6 +35,10 @@ libncurses5-dev
 libffi-dev
 zlib1g-dev
 libyaml-dev
+libre2-dev
+
+gettext
+acl
 
 sudo
 
