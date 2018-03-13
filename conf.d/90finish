@@ -3,13 +3,11 @@
 source /usr/local/src/gitlab.conf
 
 service redis-server start
-cd $GIT_HOME/gitlab
 
-exec_git 'bundle exec rake gettext:compile RAILS_ENV=production'
+cd $GIT_HOME/gitlab
 exec_git 'bundle exec rake gettext:compile RAILS_ENV=production'
 exec_git 'yarn install'
 exec_git 'bundle exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production'
-# exec_git 'cd ~/gitlab && RAILS_ENV=production bundle exec rake assets:precompile webpack:compile'
 service redis-server stop
 
 # cleanup

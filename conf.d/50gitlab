@@ -161,7 +161,7 @@ EOF
 # install
 [ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
 cd $GIT_HOME/gitlab
-exec_git "bundle install --deployment --without development test postgres aws kerberos"
+exec_git "bundle install --deployment --without development test postgres kerberos"
 
 /etc/init.d/ssh start
 /etc/init.d/redis-server start
