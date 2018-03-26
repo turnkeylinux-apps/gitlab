@@ -3,19 +3,19 @@
 source /usr/local/src/gitlab.conf
 
 # download and checkout specified version
-URL="https://github.com/gitlabhq/gitlab-shell.git"
+URL="https://gitlab.com/gitlab-org/gitlab-shell.git"
 
 [ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
-exec_git "git clone $URL $GIT_HOME/gitlab-shell"
+exec_git "git clone -b $VERSION_GITLAB_SHELL --single-branch  $URL $GIT_HOME/gitlab-shell"
 unset HTTP_PROXY
 
 cd $GIT_HOME/gitlab-shell
-exec_git "git checkout $VERSION_GITLAB_SHELL"
-exec_git "git checkout -b $VERSION_GITLAB_SHELL"
+# exec_git "git checkout $VERSION_GITLAB_SHELL"
+# exec_git "git checkout -b $VERSION_GITLAB_SHELL"
 
 # configure and install
 exec_git "cp $GIT_HOME/gitlab-shell/config.yml.example \
              $GIT_HOME/gitlab-shell/config.yml"
 exec_git "./bin/install"
 exec_git "./bin/compile"
-chown $GIT_USER $GIT_HOME/.ssh/
+

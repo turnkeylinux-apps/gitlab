@@ -2,7 +2,8 @@
 
 source /usr/local/src/gitlab.conf
 
-MYCNF=/etc/mysql/mariadb.conf.d/99-turnkey-redmine-workaround.cnf
+# workaround for mariadb v10.1 (Specified key was too long; max key length is 767)
+MYCNF=/etc/mysql/mariadb.conf.d/99-turnkey-mariadb-workaround.cnf
 cat > $MYCNF <<EOF
   [mysqld]
   default_tmp_storage_engine = InnoDB
