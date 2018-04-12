@@ -82,8 +82,16 @@ def main():
 
     inithooks_cache.write('APP_DOMAIN', domain)
     
-    password_script = "echo \" conf.return_format = ''; ActiveRecord::Base.logger.level = 1; u = User.where(id: 1).first; u.password = '{0}'; u.password_confirmation = '{0}'; u.email = '{1}'; u.save! \" | rails c -e production".format(password, email)
-    system_gitlab("RAILS_ENV=production bundle exec %s 2>&1 1>/dev/null" % password_script)
+    console_script = """ "
+      ActiveRecord::Base.logger.level = 1;
+      u = User.where(id: 1).first;
+      u.password = '%s';
+      u.email = '%s';
+      u.skip_reconfirmation!;
+      u.save!; " """ % (password, email)
+
+    print("Please wait...")
+    system_gitlab("RAILS_ENV=production bundle exec rails r %s 2>&1 1>/dev/null" % console_script)
 
     config = "/home/git/gitlab/config/gitlab.yml"
     system("sed -i \"s|host:.*|host: %s|\" %s" % (domain, config))
