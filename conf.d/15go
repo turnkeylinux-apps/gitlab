@@ -2,9 +2,10 @@
 
 source /usr/local/src/gitlab.conf
 
-curl --remote-name --progress https://storage.googleapis.com/golang/go1.5.3.linux-amd64.tar.gz
-echo '43afe0c5017e502630b1aea4d44b8a7f059bf60d7f29dfd58db454d4e4e0ae53  go1.5.3.linux-amd64.tar.gz' | shasum -a256 -c - && \
-  tar -C /usr/local -xzf go1.5.3.linux-amd64.tar.gz
+# install Golang
+curl --remote-name --progress https://storage.googleapis.com/golang/go1.8.3.linux-amd64.tar.gz
+echo '1862f4c3d3907e59b04a757cfda0ea7aa9ef39274af99a784f5be843c80c6772  go1.8.3.linux-amd64.tar.gz' | shasum -a256 -c - && \
+  tar -C /usr/local -xzf go1.8.3.linux-amd64.tar.gz
 ln -sf /usr/local/go/bin/{go,godoc,gofmt} /usr/local/bin/
-rm go1.5.3.linux-amd64.tar.gz
+rm go1.8.3.linux-amd64.tar.gz
 

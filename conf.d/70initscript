@@ -2,7 +2,7 @@
 
 source /usr/local/src/gitlab.conf
 
-cp /home/git/gitlab/lib/support/init.d/gitlab /etc/init.d/gitlab
+cp $GIT_HOME/gitlab/lib/support/init.d/gitlab /etc/init.d/gitlab
 chown root:root /etc/init.d/gitlab
 
 update-rc.d gitlab defaults

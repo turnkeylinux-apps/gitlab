@@ -81,12 +81,17 @@ def main():
         domain = DEFAULT_DOMAIN
 
     inithooks_cache.write('APP_DOMAIN', domain)
+    
+    console_script = """ "
+      ActiveRecord::Base.logger.level = 1;
+      u = User.where(id: 1).first;
+      u.password = '%s';
+      u.email = '%s';
+      u.skip_reconfirmation!;
+      u.save!; " """ % (password, email)
 
-    salt = bcrypt.gensalt(10)
-    hash = bcrypt.hashpw(password, salt)
-
-    m = MySQL()
-    m.execute('UPDATE gitlab_production.users SET email=\"%s\", encrypted_password=\"%s\", confirmation_sent_at=(NOW()) AND confirmed_at=(NOW() + INTERVAL 1 SECOND) WHERE username="gitlab-admin";' % (email, hash))
+    print("Please wait...")
+    system_gitlab("RAILS_ENV=production bundle exec rails r %s 2>&1 1>/dev/null" % console_script)
 
     config = "/home/git/gitlab/config/gitlab.yml"
     system("sed -i \"s|host:.*|host: %s|\" %s" % (domain, config))
