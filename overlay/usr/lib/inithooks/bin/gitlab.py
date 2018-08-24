@@ -11,8 +11,6 @@ Option:
 import sys
 import getopt
 import inithooks_cache
-import bcrypt
-from mysqlconf import MySQL
 
 from dialog_wrapper import Dialog
 from executil import ExecError, system
