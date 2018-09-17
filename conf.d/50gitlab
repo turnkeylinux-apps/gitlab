@@ -3,15 +3,13 @@
 source /usr/local/src/gitlab.conf
 [ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
 
-
-# download and checkout specified version
 URL="https://github.com/gitlabhq/gitlabhq.git"
-
-exec_git "git clone -b $VERSION_GITLAB --single-branch $URL $GIT_HOME/gitlab"
-unset HTTP_PROXY
+exec_git "git clone --single-branch --depth=1 $URL $GIT_HOME/gitlab" 
 
 cd $GIT_HOME/gitlab
-# exec_git "git checkout $VERSION_GITLAB"
+
+exec_git "git fetch --all --tags --prune"
+exec_git "git checkout tags/${VERSION_GITLAB}"
 
 # configure settings
 exec_git "cat >$GIT_HOME/gitlab/config/gitlab.yml<<EOF
@@ -55,7 +53,12 @@ production: &base
     max_size: 5242880 # 5.megabytes
     timeout: 10
 
+  gitaly:
+    enabled: true
+    client_path: /home/git/gitaly/
+    token:
 EOF"
+
 exec_git "mkdir -p $GIT_HOME/gitlab-satellites"
 
 exec_git "cat >$GIT_HOME/gitlab/config/database.yml<<EOF
@@ -131,10 +134,7 @@ sed -i "s|Port 22|Port 2222|" /etc/ssh/sshd_config
 sed -i "s|Port 22|Port 2222|" $GIT_HOME/.ssh/config
 sed -i "s|ssh_port: 22|ssh_port: 2222|" $GIT_HOME/gitlab/config/gitlab.yml
 
-
-
-
-# update DB files to force DYMANIC row - work around MariaDBv10.1 bug
+# update DB files to force DYNAMIC row - work around MariaDBv10.1 bug
 cat > /home/git/gitlab/config/initializers/ar_innodb_row_format.rb <<EOF
 ActiveSupport.on_load :active_record do
   module ActiveRecord::ConnectionAdapters
@@ -152,31 +152,52 @@ ActiveSupport.on_load :active_record do
 end
 EOF
 
-
-
-
 # install
-[ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
 cd $GIT_HOME/gitlab
-exec_git "bundle install --deployment --without development test postgres aws kerberos"
+exec_git "bundle install -j$(nproc) --deployment --without development test postgres aws kerberos"
 
-/etc/init.d/ssh start
-/etc/init.d/redis-server start
-exec_git "bundle exec rake force=yes gitlab:setup RAILS_ENV=production"
-exec_git "bundle exec rake sidekiq:start RAILS_ENV=production"
-exec_git "bundle exec rake gitlab:env:info RAILS_ENV=production"
-unset HTTP_PROXY
+service ssh start
+service redis-server start
+exec_git 'bundle exec rake gitlab:shell:install REDIS_URL=unix:/var/run/redis/redis.sock RAILS_ENV=production SKIP_STORAGE_VALIDATION=true'
+exec_git 'bundle exec rake gitlab:workhorse:install[/home/git/gitlab-workhorse] RAILS_ENV=production'
+exec_git 'bundle exec rake gitlab:gitaly:install[/home/git/gitaly] RAILS_ENV=production'
+
+cat << EOF >> /home/git/gitaly/config.toml
+socket_path = "/home/git/gitlab/tmp/sockets/private/gitaly.socket"
+bin_dir = "/home/git/gitaly"
+prometheus_listen_addr = ":9236"
+
+[[storage]]
+path = "/home/git/repositories"
+name = "repositories"
+EOF
+
+exec_git 'nohup /home/git/gitaly/gitaly /home/git/gitaly/config.toml & echo $! > /tmp/gitaly.pid'
+exec_git 'bundle exec rake --trace gitlab:setup RAILS_ENV=production force=yes'
+exec_git 'bundle exec rake sidekiq:start RAILS_ENV=production'
+exec_git 'bundle exec rake gitlab:env:info RAILS_ENV=production'
+exec_git 'bundle exec rake gitlab:check RAILS_ENV=production'
+
+kill $( cat /tmp/gitaly.pid)
+rm /tmp/gitaly.pid
 
 # stop running services
-/etc/init.d/ssh stop
-/etc/init.d/redis-server stop
-/etc/init.d/mysql stop
+service ssh stop
+service mysql stop
+
+unset HTTP_PROXY
 
 # change ssh port configuration back
 sed -i "s|Port 2222|Port 22|" /etc/ssh/sshd_config
-sed -i "s|port 2222|port 22|" $GIT_HOME/.ssh/config
 sed -i "s|ssh_port: 2222|ssh_port: 22|" $GIT_HOME/gitlab/config/gitlab.yml
+rm $GIT_HOME/.ssh/config
 
-## TESTING
-#sudo -u git -H bundle exec rake gitlab:check RAILS_ENV=production
+# set permissions
+chmod 0700 $GIT_HOME/gitlab/tmp/sockets/private
+chown git $GIT_HOME/gitlab/tmp/sockets/private
 
+chmod -R ug+rwX,o-rwx $GIT_HOME/repositories
+chmod -R ug-s $GIT_HOME/repositories
+find $GIT_HOME/repositories -type d -print0 | xargs -0 chmod g+s
+
+service redis-server stop

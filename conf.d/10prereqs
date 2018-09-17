@@ -1,0 +1,22 @@
+#!/bin/bash -ex
+
+source /usr/local/src/gitlab.conf
+
+# install gems
+[ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
+gem install bundler --no-ri --no-rdoc
+
+# install yarn
+curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+apt-get update && apt-get install yarn
+
+# install Golang
+echo "https://storage.googleapis.com/golang/go${VERSION_GO}.linux-amd64.tar.gz"
+curl --remote-name --progress "https://storage.googleapis.com/golang/go${VERSION_GO}.linux-amd64.tar.gz"
+echo "fa1b0e45d3b647c252f51f5e1204aba049cde4af177ef9f2181f43004f901035  go${VERSION_GO}.linux-amd64.tar.gz" | shasum -a256 -c -
+tar -C /usr/local -xzf go${VERSION_GO}.linux-amd64.tar.gz
+ln -sf /usr/local/go/bin/{go,godoc,gofmt} /usr/local/bin/
+rm go${VERSION_GO}.linux-amd64.tar.gz
+
+unset HTTP_PROXY
