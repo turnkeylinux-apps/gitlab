@@ -95,6 +95,8 @@ def main():
     system("sed -i \"s|host:.*|host: %s|\" %s" % (domain, config))
     system("sed -i \"s|email_from:.*|email_from: %s|\" %s" % (email, config))
 
+    system("sed -i \"s|gitlab_url:.*|gitlab_url: http://%s/|\" %s" % (domain, '/home/git/gitlab-shell/config.yml'))
+
     system_gitlab("git config --global user.email %s" % email)
 
     # restart gitlab if it's running
