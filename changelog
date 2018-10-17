@@ -2,23 +2,23 @@ turnkey-gitlab-15.0 (1) turnkey; urgency=low
 
   * GitLab:
 
-    - Upgraded to the latest upstream version (10.6)
+    - Upgraded to the latest upstream version (11.1.0)
+
     - Change inithook to use rails console for settings password and email.
+      [ Zhenya Hvorostian ]
 
-  * Install yarn from yarnpkg repo.
+  * Install yarn from yarnpkg apt repo, pin and secure gpg.
+    [ Zhenya Hvorostian & Stefan Davis ]
 
-  * Update Golang (1.8.3)
+  * Update Golang (1.10.3)
 
-  * Install Gitaly (0.94.0)
-  
-  * Update gitlab-workhorse (4.1.0)
-
-  * Update gitlab-shell (7.1.2)
+  * Install Gitaly
+    [ Zhenya Hvorostian & Anton Pyrogovskyi ]
 
   * Note: Please refer to turnkey-core's changelog for changes common to all
     appliances. Here we only describe changes specific to this appliance.
 
- -- Zhenya Hvorostian <zhenya@turnkeylinux.org>  Fri, 13 Apr 2017 02:25:32 +0300
+ -- Anton Pyrogovskyi <anton@turnkeylinux.org>  Tue, 18 Sep 2018 02:25:32 +0300
 
 turnkey-gitlab-14.2 (1) turnkey; urgency=low
 
