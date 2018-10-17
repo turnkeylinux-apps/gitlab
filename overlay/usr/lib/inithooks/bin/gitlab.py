@@ -11,8 +11,6 @@ Option:
 import sys
 import getopt
 import inithooks_cache
-import bcrypt
-from mysqlconf import MySQL
 
 from dialog_wrapper import Dialog
 from executil import ExecError, system
@@ -96,6 +94,8 @@ def main():
     config = "/home/git/gitlab/config/gitlab.yml"
     system("sed -i \"s|host:.*|host: %s|\" %s" % (domain, config))
     system("sed -i \"s|email_from:.*|email_from: %s|\" %s" % (email, config))
+
+    system("sed -i \"s|gitlab_url:.*|gitlab_url: http://%s/|\" %s" % (domain, '/home/git/gitlab-shell/config.yml'))
 
     system_gitlab("git config --global user.email %s" % email)
 
