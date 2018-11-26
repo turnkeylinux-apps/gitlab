@@ -1,3 +1,10 @@
+turnkey-gitlab-15.1 (1) turnkey; urgency=low
+
+  * Rebuild to resolve inadvertant removal of mariadb during sec-updates
+    - part of #1246.
+
+ -- Jeremy Davis <jeremy@turnkeylinux.org>  Mon, 26 Nov 2018 11:29:02 +1100
+
 turnkey-gitlab-15.0 (1) turnkey; urgency=low
 
   * GitLab:
