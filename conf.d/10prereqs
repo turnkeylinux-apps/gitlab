@@ -2,8 +2,27 @@
 
 source /usr/local/src/gitlab.conf
 
-# install gems
 [ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
+
+dl() {
+    PROXY="--proxy $FAB_HTTP_PROXY"
+    cd $2; curl -L -f -O $PROXY $1; cd -
+}
+
+
+# install ruby from source
+mkdir -p $RUBY_TMP
+cd $RUBY_TMP
+dl $RUBY_URL .
+echo "$RUBY_SHA  $RUBY_TAR" | shasum -c - && tar xzf $RUBY_TAR
+cd ${RUBY_TAR%.tar*}
+./configure --disable-install-rdoc
+make
+make install
+cd ~
+rm -rf $RUBY_TMP
+
+# install gems
 gem install bundler --no-ri --no-rdoc
 
 # install yarn
