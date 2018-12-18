@@ -113,7 +113,7 @@ exec_git 'bundle exec rake gitlab:shell:install REDIS_URL=unix:/var/run/redis/re
 exec_git 'bundle exec rake gitlab:workhorse:install[/home/git/gitlab-workhorse] RAILS_ENV=production'
 exec_git 'bundle exec rake gitlab:gitaly:install[/home/git/gitaly] RAILS_ENV=production'
 
-cat << EOF >> /home/git/gitaly/config.toml
+cat << EOF > /home/git/gitaly/config.toml
 socket_path = "/home/git/gitlab/tmp/sockets/private/gitaly.socket"
 bin_dir = "/home/git/gitaly"
 prometheus_listen_addr = ":9236"
@@ -121,6 +121,12 @@ prometheus_listen_addr = ":9236"
 [[storage]]
 path = "/home/git/repositories"
 name = "repositories"
+
+[gitaly-ruby]
+dir = "/home/git/gitaly/ruby"
+
+[gitlab-shell]
+dir = "/home/git/gitlab-shell"
 EOF
 
 exec_git 'nohup /home/git/gitaly/gitaly /home/git/gitaly/config.toml & echo $! > /tmp/gitaly.pid'
