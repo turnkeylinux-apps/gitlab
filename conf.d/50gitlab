@@ -3,13 +3,10 @@
 source /usr/local/src/gitlab.conf
 [ "$FAB_HTTP_PROXY" ] && export HTTP_PROXY=$FAB_HTTP_PROXY
 
-URL="https://github.com/gitlabhq/gitlabhq.git"
-exec_git "git clone --single-branch --depth=1 $URL $GIT_HOME/gitlab" 
+URL="https://gitlab.com/gitlab-org/gitlab-ce.git"
+exec_git "git clone --branch ${VERSION_GITLAB} --depth=1 $URL $GIT_HOME/gitlab"
 
 cd $GIT_HOME/gitlab
-
-exec_git "git fetch --all --tags --prune"
-exec_git "git checkout tags/${VERSION_GITLAB}"
 
 # configure settings
 exec_git "cat >$GIT_HOME/gitlab/config/gitlab.yml<<EOF
