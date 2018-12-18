@@ -9,52 +9,27 @@ exec_git "git clone --branch ${VERSION_GITLAB} --depth=1 $URL $GIT_HOME/gitlab"
 cd $GIT_HOME/gitlab
 
 # configure settings
-exec_git "cat >$GIT_HOME/gitlab/config/gitlab.yml<<EOF
 
-# Gitlab application config file
-production: &base
+# GitLab config is contained within the overlay.
+# It is generated from the example config and some minor
+# adjustments made, plus a couple of placeholders (signified by
+# '%%VAR_NAME`).
+#
+# To re-generate updated config:
+#
+#     grep -v '^[[:space:]]*#' $GITLAB_CONF.example > gitlab.yml
+#
+# Then make relevant adjustments and add placeholders.
+#
+# One important (manual) inclusion required for initial install is the
+# 'ssh_port: 22' line within the 'gitlab_shell:' section.
 
-  gitlab:
-    host: $DOMAIN
-    port: 80
-    https: false
-    email_from: $ADMIN_MAIL
-    default_projects_limit: 10
-    signup_enabled: false
-    username_changing_enabled: true
-    gitaly:
-      token: 'turnkey'
+GITLAB_CONF=$GIT_HOME/gitlab/config/gitlab.yml
+mv $SRC/gitlab.yml $GITLAB_CONF
+chown $GIT_USER:$GIT_USER $GITLAB_CONF
 
-  gravatar:
-    enabled: true
-
-  satellites:
-    path: $GIT_HOME/gitlab-satellites/
-
-  repositories:
-    storages:
-      default:
-        path: $GIT_HOME/repositories/
-        gitaly_address: unix:/home/git/gitlab/tmp/sockets/private/gitaly.socket
-
-
-  gitlab-shell:
-    repos_path: $GIT_HOME/repositories/
-    hooks_path: $GIT_HOME/gitlab-shell/hooks/
-    upload_pack: true
-    receive_pack: true
-    ssh_port: 22
-
-  git:
-    bin_path: /usr/bin/git
-    max_size: 5242880 # 5.megabytes
-    timeout: 10
-
-  gitaly:
-    enabled: true
-    client_path: /home/git/gitaly/
-    token:
-EOF"
+exec_git "sed -i \"s|%%DOMAIN|$DOMAIN|\" $GITLAB_CONF"
+exec_git "sed -i \"s|%%ADMIN_MAIL|$ADMIN_MAIL|\" $GITLAB_CONF"
 
 exec_git "mkdir -p $GIT_HOME/gitlab-satellites"
 
@@ -90,7 +65,6 @@ EOF"
 exec_git "cat >>$GIT_HOME/gitlab/app/views/layouts/application.html.haml<<EOF
 <div id='turnkey-credit' style='font-size:10px;text-align:center;padding-top:20px'><a href='https://www.turnkeylinux.org/gitlab'>GitLab Appliance</a> - Powered by <a href='https://www.turnkeylinux.org'>TurnKey Linux</a></div>
 EOF"
-
 
 
 # fetch and compile gitlab-workhorse
