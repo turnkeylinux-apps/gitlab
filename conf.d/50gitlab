@@ -76,7 +76,7 @@ exec_git "make -C $GIT_HOME/gitlab-workhorse"
 # set permissions
 chown -R $GIT_USER $GIT_HOME/gitlab/log
 chown -R $GIT_USER $GIT_HOME/gitlab/tmp
-chmod -R u+rwX $GIT_HOME/gitlab/log
+chmod -R u+rwX,go-w $GIT_HOME/gitlab/log
 chmod -R u+rwX $GIT_HOME/gitlab/tmp
 
 chmod -R u+rwX $GIT_HOME/gitlab/tmp/pids/
@@ -85,6 +85,9 @@ chmod -R u+rwX $GIT_HOME/gitlab/tmp/sockets/
 exec_git "mkdir $GIT_HOME/gitlab/public/uploads"
 chmod 0700 $GIT_HOME/gitlab/public/uploads
 chown $GIT_USER $GIT_HOME/gitlab/public
+
+chmod -R u+rwX $GIT_HOME/gitlab/builds/
+chmod -R u+rwX $GIT_HOME/gitlab/shared/artifacts/
 
 mkdir -p $GIT_HOME/repositories
 chown -R $GIT_USER $GIT_HOME/repositories
