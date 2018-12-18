@@ -36,7 +36,8 @@ exec_git "mkdir -p $GIT_HOME/gitlab-satellites"
 exec_git "cat >$GIT_HOME/gitlab/config/database.yml<<EOF
 production:
   adapter: mysql2
-  encoding: utf8
+  encoding: utf8mb4
+  collation: utf8mb4_general_ci
   reconnect: false
   database: $DB_NAME
   username: $DB_USER
@@ -104,24 +105,6 @@ ln -s /usr/bin/python /usr/local/bin/python2
 sed -i "s|Port 22|Port 2222|" /etc/ssh/sshd_config
 sed -i "s|Port 22|Port 2222|" $GIT_HOME/.ssh/config
 sed -i "s|ssh_port: 22|ssh_port: 2222|" $GIT_HOME/gitlab/config/gitlab.yml
-
-# update DB files to force DYNAMIC row - work around MariaDBv10.1 bug
-cat > /home/git/gitlab/config/initializers/ar_innodb_row_format.rb <<EOF
-ActiveSupport.on_load :active_record do
-  module ActiveRecord::ConnectionAdapters
-    class AbstractMysqlAdapter
-      def create_table_with_innodb_row_format(table_name, options = {})
-        table_options = options.reverse_merge(:options => 'ENGINE=InnoDB ROW_FORMAT=DYNAMIC')
-
-        create_table_without_innodb_row_format(table_name, table_options) do |td|
-         yield td if block_given?
-        end
-      end
-      alias_method_chain :create_table, :innodb_row_format
-    end
-  end
-end
-EOF
 
 # install
 cd $GIT_HOME/gitlab

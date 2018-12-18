@@ -10,10 +10,11 @@ cat > $MYCNF <<EOF
   innodb_file_format = Barracuda
   innodb_file_format_max = Barracuda
   innodb_large_prefix = 1
+  innodb_default_row_format = Dynamic
 EOF
 
 
-/etc/init.d/mysql start
+service mysql start
 
 MYSQL_BATCH="mysql --user=root --password=$MYSQL_PASS --batch"
 MYSQL_ADMIN="mysqladmin --user=root --password=$MYSQL_PASS"
