@@ -99,6 +99,12 @@ find $GIT_HOME/repositories -type d -print0 | xargs -0 chmod g+s
 # rack attack config
 cp $GIT_HOME/gitlab/config/initializers/rack_attack.rb.example $GIT_HOME/gitlab/config/initializers/rack_attack.rb
 
+# adjust git config
+exec_git "git config --global core.autocrlf input"
+exec_git "git config --global gc.auto 0"
+exec_git "git config --global repack.writeBitmaps true"
+exec_git "git config --global receive.advertisePushOptions true"
+
 # recommended in installation guide
 ln -s /usr/bin/python /usr/local/bin/python2
 
