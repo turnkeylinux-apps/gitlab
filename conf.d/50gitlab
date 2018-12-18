@@ -121,7 +121,11 @@ service ssh start
 service redis-server start
 exec_git 'bundle exec rake gitlab:shell:install REDIS_URL=unix:/var/run/redis/redis.sock RAILS_ENV=production SKIP_STORAGE_VALIDATION=true'
 exec_git 'bundle exec rake gitlab:workhorse:install[/home/git/gitlab-workhorse] RAILS_ENV=production'
-exec_git 'bundle exec rake gitlab:gitaly:install[/home/git/gitaly] RAILS_ENV=production'
+exec_git 'bundle exec rake gitlab:gitaly:install[/home/git/gitaly,/home/git/repositories] RAILS_ENV=production'
+
+# restrict Gitaly socket access
+chmod 0700 $GIT_HOME/gitlab/tmp/sockets/private
+chown $GIT_USER $GIT_HOME/gitlab/tmp/sockets/private
 
 cat << EOF > /home/git/gitaly/config.toml
 socket_path = "/home/git/gitlab/tmp/sockets/private/gitaly.socket"
