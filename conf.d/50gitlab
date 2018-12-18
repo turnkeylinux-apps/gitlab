@@ -31,8 +31,6 @@ chown $GIT_USER:$GIT_USER $GITLAB_CONF
 exec_git "sed -i \"s|%%DOMAIN|$DOMAIN|\" $GITLAB_CONF"
 exec_git "sed -i \"s|%%ADMIN_MAIL|$ADMIN_MAIL|\" $GITLAB_CONF"
 
-exec_git "mkdir -p $GIT_HOME/gitlab-satellites"
-
 exec_git "cat >$GIT_HOME/gitlab/config/database.yml<<EOF
 production:
   adapter: mysql2
@@ -91,7 +89,6 @@ mkdir -p $GIT_HOME/repositories
 chown -R $GIT_USER $GIT_HOME/repositories
 chmod -R ug+rwX,o-rwx $GIT_HOME/repositories
 chmod -R ug-s $GIT_HOME/repositories
-chmod u+rwx,g=rx,o-rwx $GIT_HOME/gitlab-satellites
 find $GIT_HOME/repositories -type d -print0 | xargs -0 chmod g+s
 
 
