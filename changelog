@@ -1,3 +1,19 @@
+turnkey-gitlab-15.2 (1) turnkey; urgency=low
+
+  * GitLab:
+
+    - Update to latest upstream stable version (11.5.4).
+    - Now install from stable branch (i.e. 'stable-11.5' currently) rather
+      than tag.
+    - Install Ruby 2.5.3 from source (newer GitLab requires newer Ruby).
+    - Tweak MariaDB/MySQL config to remove previous bug workaround - part of
+      #1259.
+    - Enable logrotate.
+    - Include documentation to upgrade to GitLab v11.5 for v15.0/v15.1 users.
+    - Various other minor config and install tweaks and updates.
+
+ -- Jeremy Davis <jeremy@turnkeylinux.org>  Wed, 19 Dec 2018 11:01:06 +1100
+
 turnkey-gitlab-15.1 (1) turnkey; urgency=low
 
   * Rebuild to resolve inadvertant removal of mariadb during sec-updates
