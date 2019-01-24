@@ -1,0 +1,7 @@
+Package: *
+Pin: origin "packages.gitlab.com"
+Pin-Priority: 10
+
+Package: gitlab-ce
+Pin: origin "packages.gitlab.com"
+Pin-Priority: 500
