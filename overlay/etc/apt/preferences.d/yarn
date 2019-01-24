@@ -1,7 +1,0 @@
-Package: *
-Pin: origin "dl.yarnpkg.com"
-Pin-Priority: 100
-
-Package: yarn
-Pin: origin "dl.yarnpkg.com"
-Pin-Priority: 500
