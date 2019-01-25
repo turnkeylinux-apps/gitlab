@@ -1,0 +1,5 @@
+#!/bin/bash -ex
+
+apt-get update
+
+EXTERNAL_URL="http://wwww.example.com" apt-get install gitlab-ce -y
