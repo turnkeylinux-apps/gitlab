@@ -1,0 +1,23 @@
+#!/bin/bash -e
+
+# bash wrapper for systemctl to allow GitLab omnibus pacakge to install in a
+# chroot
+
+if [[ $# -eq 0 ]]; then
+    # respond to 'systemctl | grep "\-\.mount"' as GitLab expects for systemd
+    echo "-.mount                                                                                     loaded active mounted   Root Mount"
+    exit 0
+elif [[ $1 == 'enable' ]]; then
+    /bin/systemctl $@
+elif [[ $1 == "daemon-reload" ]]; then
+    exit 0
+elif [[ $1 == "start" ]] && [[ $2 == gitlab-runsvdir* ]]; then
+    /opt/gitlab/embedded/bin/runsvdir-start &
+else
+    echo "* systemctl wrapper for installing GitLab in TKLDev chroot"
+    echo "* /usr/local/bin/systemctl"
+    echo "ERROR - unexpected command or service: $@"
+    exit 1
+fi
+
+exit 0

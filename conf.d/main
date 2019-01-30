@@ -2,4 +2,54 @@
 
 apt-get update
 
-EXTERNAL_URL="http://wwww.example.com" apt-get install gitlab-ce -y
+EXTERNAL_URL="http://gitlab.example.com" apt-get install gitlab-ce -y
+
+git config --global user.email "jeremy@turnkeylinux.org"
+git config --global user.name "Jeremy Davis"
+
+cd /opt/gitlab
+git init
+git add .
+git commit -m "initial commit of package installed but not configured"
+
+mkdir -p /var/opt/gitlab/
+cd /var/opt/gitlab/
+git init
+git add .
+git commit -m "initial commit of package installed but not configured"
+
+# tweak GitLab defaults for build within TKLDev
+CONF=/etc/gitlab/gitlab.rb
+sed -i "/^external_url/ s|'.*|'http://www.turnkey.example.com'|" $CONF
+sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|^# *||" $CONF
+sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|=.*|= 'none'|" $CONF
+sed -i "/postgresql\['shared_buffers'\]/ s|^# *||" $CONF
+sed -i "/postgresql\['shared_buffers'\]/ s|=.*|= \"100MB\"|" $CONF
+
+gitlab-ctl reconfigure
+
+gitlab-ctl stop
+
+cd /opt/gitlab
+git add .
+git commit -m "new commit after running 'gitlab-ctl reconfigure'"
+
+git log --name-only --pretty=oneline --full-index HEAD^..HEAD \
+    | grep -vE '^[0-9a-f]{40} ' | sort | uniq > /root/opt-gitlab-changes.txt
+
+cd /var/opt/gitlab/
+git init
+git add .
+git commit -m "new commit after running 'gitlab-ctl reconfigure'"
+
+git log --name-only --pretty=oneline --full-index HEAD^..HEAD \
+        | grep -vE '^[0-9a-f]{40} ' | sort | uniq > /root/var-opt-gitlab-changes.txt
+
+mv /opt/gitlab/embedded/nodes/tkldev.json /root/gitlab_embedded_nodes_tkldev.json
+
+# reset GitLab Postgres defaults
+sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|^|# |" $CONF
+sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|= 'none'|= nil|" $CONF
+sed -i "/postgresql\['shared_buffers'\]/ s|^|# |" $CONF
+sed -i "/postgresql\['shared_buffers'\]/ s|=.*|= \"256MB\"|" $CONF
+
