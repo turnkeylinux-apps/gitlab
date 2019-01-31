@@ -5,7 +5,10 @@ Option:
     --pass=     unless provided, will ask interactively
     --email=    unless provided, will ask interactively
     --domain=   unless provided, will ask interactively
+                (can include schema)
                 DEFAULT=www.example.com
+    --schema=   unless provided (explicitly or via domain), will ask interactively
+                DEFAULT=http
 """
 
 import sys
@@ -23,10 +26,8 @@ def usage(s=None):
     print >> sys.stderr, __doc__
     sys.exit(1)
 
-DEFAULT_DOMAIN="www.example.com"
-
-def system_gitlab(cmd):
-    system("sudo -u git -H sh -c", "cd /home/git/gitlab; %s" % cmd)
+DEFAULT_DOMAIN = "www.example.com"
+DEFAULT_SCHEMA = "http"
 
 def main():
     try:
@@ -38,6 +39,7 @@ def main():
     email = ""
     domain = ""
     password = ""
+    schema = ""
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
@@ -47,6 +49,8 @@ def main():
             email = val
         elif opt == '--domain':
             domain = val
+        elif opt == '--schema':
+            schema = val
 
     if not password:
         d = Dialog('TurnKey Linux - First boot configuration')
@@ -78,6 +82,29 @@ def main():
     if domain == "DEFAULT":
         domain = DEFAULT_DOMAIN
 
+    if not domain.startswith('https://') and not domain.startswith('http://'):
+
+        if not schema:
+            if 'd' not in locals():
+    	        d = Dialog("TurnKey GNU/Linux - First boot configuration")
+
+    	    schema_check = d.yesno(
+                "Domain Schema",
+                "Select the default GitLab URL schema.\n\n" +
+                "NOTE: If you select https but have not configured DNS for your domain, inialistation will fail.\n\n" +
+                "If in doubt, please select 'http' (can be reconfigured later).",
+                "http", "https")
+
+        if not schema_check:
+            schema = "http"
+        else:
+            schema = "https"
+
+        if schema == "DEFAULT":
+            domain = DEFAULT_SCHEMA
+
+        domain = schema + "://" + domain
+
     inithooks_cache.write('APP_DOMAIN', domain)
     
     console_script = """ "
@@ -86,25 +113,19 @@ def main():
       u.password = '%s';
       u.email = '%s';
       u.skip_reconfirmation!;
-      u.save!; " """ % (password, email)
+      u.save!; 
+      exit" """ % (password, email)
 
-    print("Please wait...")
-    system_gitlab("RAILS_ENV=production bundle exec rails r %s 2>&1 1>/dev/null" % console_script)
+    print("Reconfiguring GitLab. This might take a while. Please wait...")
 
-    config = "/home/git/gitlab/config/gitlab.yml"
-    system("sed -i \"s|host:.*|host: %s|\" %s" % (domain, config))
-    system("sed -i \"s|email_from:.*|email_from: %s|\" %s" % (email, config))
+    config = "/etc/gitlab/gitlab.rb"
+    system("sed -i \"/^external_url/ s|'.*|'%s'|\" %s" % (domain, config))
+    system("sed -i \"/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '%s'|\" %s" % (email, config))
 
-    system("sed -i \"s|gitlab_url:.*|gitlab_url: http://%s/|\" %s" % (domain, '/home/git/gitlab-shell/config.yml'))
+    system("echo '%s' | gitlab-rails console production" % console_script)
 
-    system_gitlab("git config --global user.email %s" % email)
-
-    # restart gitlab if it's running
-    try:
-        system("service gitlab restart")
-    except ExecError:
-        pass
-
+    system("gitlab-ctl reconfigure")
+    
 if __name__ == "__main__":
     main()
 
