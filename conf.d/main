@@ -1,5 +1,11 @@
 #!/bin/bash -ex
 
+DOMAIN=www.example.com
+ADMIN_EMAIL=admin@example.com
+APP_NAME="TurnKey GitLab"
+DISPLAY_NAME="$APP_NAME Admin"
+
+
 apt-get update
 
 EXTERNAL_URL="http://gitlab.example.com" apt-get install gitlab-ce -y
@@ -20,11 +26,21 @@ git commit -m "initial commit of package installed but not configured"
 
 # tweak GitLab defaults for build within TKLDev
 CONF=/etc/gitlab/gitlab.rb
-sed -i "/^external_url/ s|'.*|'http://www.turnkey.example.com'|" $CONF
+sed -i "/^external_url/ s|'.*|'http://$DOMAIN'|" $CONF
 sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|^# *||" $CONF
 sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|=.*|= 'none'|" $CONF
 sed -i "/postgresql\['shared_buffers'\]/ s|^# *||" $CONF
 sed -i "/postgresql\['shared_buffers'\]/ s|=.*|= \"100MB\"|" $CONF
+
+# tweak GitLab email config
+sed -i "/gitlab_rails\['gitlab_email_enabled'\]/ s|^# *||" $CONF
+sed -i "/gitlab_rails\['gitlab_email_from'\]/ s|^# *||" $CONF
+sed -i "/gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '$ADMIN_EMAIL'|" $CONF
+sed -i "/gitlab_rails\['gitlab_email_display_name'\]/ s|^# *||" $CONF
+sed -i "/gitlab_rails\['gitlab_email_display_name'\]/ s|=.*|= '$DISPLAY_NAME'|" $CONF
+sed -i "/gitlab_rails\['gitlab_email_subject_suffix'\]/ s|^# *||" $CONF
+sed -i "/gitlab_rails\['gitlab_email_subject_suffix'\]/ s|=.*|= '\[$APP_NAME\]'|" $CONF
+
 
 gitlab-ctl reconfigure
 
