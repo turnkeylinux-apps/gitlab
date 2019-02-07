@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""Set GitLab admin password, email and domain to serve
+"""Set GitLab root (admin) password, email and domain to serve
 
 Option:
     --pass=     unless provided, will ask interactively
@@ -56,7 +56,7 @@ def main():
         d = Dialog('TurnKey Linux - First boot configuration')
         password = d.get_password(
             "GitLab Password",
-            "Enter new password for the GitLab 'admin' account.",
+            "Enter new password for the GitLab 'root' account.",
             pass_req = 8)
 
     if not email:
@@ -65,7 +65,7 @@ def main():
 
         email = d.get_email(
             "GitLab Email",
-            "Enter email address for the GitLab 'admin' account.",
+            "Enter email address for the GitLab 'root' account.",
             "admin@example.com")
 
     inithooks_cache.write('APP_EMAIL', email)
