@@ -1,0 +1,91 @@
+#!/bin/bash -e
+
+# TKLBAM hook script for GitLab v15.2+
+
+. /etc/tklbam/hooks.d/gitlab.conf
+
+op=$1
+state=$2
+
+fatal() { echo -e "FATAL [$(basename $0)]: $@" 1>&2; exit 1; }
+warning() { echo -e "WARNING [$(basename $0)]: $@"; }
+info() { echo -e "INFO [$(basename $0)]: $@"; }
+
+gitlab_backup() {
+    /usr/bin/gitlab-rake gitlab:backup:create \
+        STRATEGY="$backup_strategy" SKIP="$backup_components_skip"
+}
+
+mkdir -p "$backup_dir_tklbam"
+
+if [[ "$state" = "pre" ]]; then
+
+    if [[ "$clr_backup_dir_tklbam" = "y" ]]; then
+        info "Pre backup/restore cache cleanup"
+        rm -rf "$backup_dir_tklbam/*"
+    fi
+
+    if [[ "$op" = "backup" ]]; then
+        info "Copying GitLab version info"
+        cp /opt/gitlab/version-manifest.txt "$backup_dir_tklbam/"
+		info "Generating gitlab backup - this can take a while..."
+        gitlab_backup
+
+        new_backup_file=$(ls -tp "$backup_dir_gitlab" | grep -v / | head -1)
+        gitlab_backup_filename="$backup_dir_gitlab/$new_backup_file"
+        tklbam_backup_filename="$backup_dir_tklbam/gitlab_backup.tar"
+        echo "$new_backup_file" > "$tklbam_backup_filename.filename"
+
+		_command="$tklbam_backup_process_command $gitlab_backup_filename $tklbam_backup_filename"
+        info "Running command:\t$_command"
+        $_command
+    fi
+
+elif [[ "$state" = "post" ]] && [[ "$op" = "restore" ]]; then
+
+	gitlab_backup_filename=$(cat "$backup_dir_tklbam/gitlab_backup.tar.filename")
+    mv "$backup_dir_tklbam/gitlab_backup.tar" "$backup_dir_gitlab/$gitlab_backup_filename"
+    chown git:git "$backup_dir_gitlab/$gitlab_backup_filename"
+    installed_version=$(head -1 /opt/gitlab/version-manifest.txt)
+    backup_version=$(head -1 "$backup_dir_tklbam/version-manifest.txt")
+
+    if [[ "$installed_version" != "$backup_version" ]]; then
+    	msg="GitLab backup version ($backup_version) and current install GitLab version"
+        msg="$msg ($installed_version) do not match.\nManual restore of backup file"
+        msg="$msg ($backup_dir_gitlab/$gitlab_backup_filename) is required.\nPlease see"
+        msg="$msg https://turnkeylinux.org/docs/gitlab#restore-omnibus for further info."
+        fatal $msg
+   	else
+    	info "Currently installed GitLab version matches TKLBAM backup GitLab version. Continuing restore."
+    fi
+
+    if [[ "$rollback_backup" = "y" ]]; then
+    	msg="Generating backup of GitLab to support rollback to current state (in case something goes wrong)."
+		msg="$msg\nDepending on how much data there is in the current install, this may take a while..."
+        msg="$msg\nTo disable this behavior, set 'rollback_backup=n' in /etc/tklbam/hooks.d/gitlab.conf"
+        info $msg
+        gitlab_backup
+        new_backup_file=$(ls -tp "$backup_dir_gitlab" | grep -v / | head -1)
+        # the rollback_backup file is not processed any further
+        # default GitLab settings will remove it in 7 days
+        msg="To manually rollback this backup, first use tklbam-rollback, i.e.:\n\ttklbam-restore-rollback"
+        msg="$msg\nThen manually restore the backup file: $backup_dir_gitlab/$new_backup_file"
+        msg="$msg\nFor more details, please see https://turnkeylinux.org/docs/gitlab#rollback-omnibus"
+        info $msg
+    fi
+
+    info "Running gitlab-ctl reconfigure to ensure that everything is in place ready for data restore."
+    gitlab-ctl reconfigure
+    info "Attempting to load GitLab backup data into GitLab.\nStopping Unicorn and Sidekiq services."
+	gitlab-ctl stop unicorn
+    gitlab-ctl stop sidekiq
+    is_down=$(gitlab-ctl status | grep ^down)
+    if [[ ! $(echo "$status" | grep unicorn >/dev/null) ]] || \
+            [[ ! $(echo "$status" | grep sidekiq >/dev/null) ]]; then
+        fatal "Something has gone wrong. Unicorn and Sidekiq do not appear to have halted"
+    fi
+    gitlab-rake gitlab:backup:restore BACKUP=${gitlab_backup_filename#_gitlab_backup.tar}
+    gitlab-ctl restart
+    gitlab-rake gitlab:check SANITIZE=true
+    info "Restore appears to have completed successfully. Yay. :)"
+fi
