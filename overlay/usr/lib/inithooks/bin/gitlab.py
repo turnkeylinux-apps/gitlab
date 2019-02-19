@@ -7,8 +7,6 @@ Option:
     --domain=   unless provided, will ask interactively
                 (can include schema)
                 DEFAULT=www.example.com
-    --schema=   unless provided (explicitly or via domain), will ask interactively
-                DEFAULT=http
 """
 
 import sys
@@ -27,7 +25,6 @@ def usage(s=None):
     sys.exit(1)
 
 DEFAULT_DOMAIN = "www.example.com"
-DEFAULT_SCHEMA = "http"
 
 def main():
     try:
@@ -39,7 +36,6 @@ def main():
     email = ""
     domain = ""
     password = ""
-    schema = ""
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
@@ -82,29 +78,6 @@ def main():
     if domain == "DEFAULT":
         domain = DEFAULT_DOMAIN
 
-    if not domain.startswith('https://') and not domain.startswith('http://'):
-
-        if not schema:
-            if 'd' not in locals():
-    	        d = Dialog("TurnKey GNU/Linux - First boot configuration")
-
-    	    schema_check = d.yesno(
-                "Domain Schema",
-                "Select the default GitLab URL schema.\n\n" +
-                "NOTE: If you select https but have not configured DNS for your domain, inialistation will fail.\n\n" +
-                "If in doubt, please select 'http' (can be reconfigured later).",
-                "http", "https")
-
-        if not schema_check:
-            schema = "http"
-        else:
-            schema = "https"
-
-        if schema == "DEFAULT":
-            domain = DEFAULT_SCHEMA
-
-        domain = schema + "://" + domain
-
     inithooks_cache.write('APP_DOMAIN', domain)
     
     console_script = """ "
@@ -119,6 +92,7 @@ def main():
     print("Reconfiguring GitLab. This might take a while. Please wait...")
 
     config = "/etc/gitlab/gitlab.rb"
+    domain = "http://%s" % domain
     system("sed -i \"/^external_url/ s|'.*|'%s'|\" %s" % (domain, config))
     system("sed -i \"/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '%s'|\" %s" % (email, config))
 
