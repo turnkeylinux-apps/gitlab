@@ -12,6 +12,8 @@ Option:
 import sys
 import getopt
 import inithooks_cache
+import os
+import pwd
 
 from dialog_wrapper import Dialog
 from executil import ExecError, system
@@ -80,23 +82,44 @@ def main():
 
     inithooks_cache.write('APP_DOMAIN', domain)
     
-    console_script = """ "
-      ActiveRecord::Base.logger.level = 1;
-      u = User.where(id: 1).first;
-      u.password = '%s';
-      u.email = '%s';
-      u.skip_reconfirmation!;
-      u.save!; 
-      exit" """ % (password, email)
+    print("Reconfiguring GitLab. This might take a while. Please wait.")
+    config = "/etc/gitlab/gitlab.rb"
+    domain = "http://%s" % domain
+    system("sed -i \"/^external_url/ s|'.*|'%s'|\" %s" % (domain, config))
+    system("sed -i \"/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '%s'|\" %s" % (email, config))
+    system("gitlab-ctl reconfigure")
 
-    print("Reconfiguring GitLab. This might take a while. Please wait...")
+    print("Setting GitLab 'root' user password and email in database. This might take a while too. Please wait (again).")
+    tmp_dir = '/run/user/0'
+    tmp_file = '.gitlab-init.rb'
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
+    tmp_path = '/'.join([tmp_dir, tmp_file])
+    tmp_contents = """
+        ActiveRecord::Base.logger.level = 1
+        u = User.where(id: 1).first
+        u.password = u.password_confirmation = '{}'
+        u.email = '{}'
+        u.skip_reconfirmation!
+        u.save!
+        exit
+    """
+    flags = os.O_WRONLY | os.O_CREAT
+    with os.fdopen(os.open(tmp_path, flags, 0o600), 'w') as fob:
+        fob.write(tmp_contents.format(password, email))
+    uid = pwd.getpwnam('git').pw_uid
+    os.chown(tmp_path, uid, 0)
+    try:
+        system("gitlab-rails runner -e production %s" % tmp_path)
+    finally:
+        os.remove(tmp_path)
+
+    print("Done\nReconfiguring GitLab. This might take a while too. Please wait (some more).")
 
     config = "/etc/gitlab/gitlab.rb"
     domain = "http://%s" % domain
     system("sed -i \"/^external_url/ s|'.*|'%s'|\" %s" % (domain, config))
     system("sed -i \"/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '%s'|\" %s" % (email, config))
-
-    system("echo '%s' | gitlab-rails console production" % console_script)
 
     system("gitlab-ctl reconfigure")
     
