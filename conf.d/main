@@ -2,6 +2,7 @@
 
 DOMAIN=www.example.com
 ADMIN_EMAIL=admin@example.com
+ADMIN_PASS=Turnkey1
 APP_NAME="TurnKey GitLab"
 DISPLAY_NAME="$APP_NAME Admin"
 
@@ -41,27 +42,18 @@ sed -i "/gitlab_rails\['gitlab_email_display_name'\]/ s|=.*|= '$DISPLAY_NAME'|" 
 sed -i "/gitlab_rails\['gitlab_email_subject_suffix'\]/ s|^# *||" $CONF
 sed -i "/gitlab_rails\['gitlab_email_subject_suffix'\]/ s|=.*|= '\[$APP_NAME\]'|" $CONF
 
-
 gitlab-ctl reconfigure
+
+# disable GitLab WebUI prompting to set 'root' GitLab user password (TurnKey
+# sets GitLab 'root' user password via inithook)
+gitlab-psql -c "UPDATE users SET password_automatically_set='f' WHERE id = 1;"
+gitlab-psql -c "UPDATE users SET reset_password_token='' WHERE id = 1;"
 
 gitlab-ctl stop
 
-cd /opt/gitlab
-git add .
-git commit -m "new commit after running 'gitlab-ctl reconfigure'"
-
-git log --name-only --pretty=oneline --full-index HEAD^..HEAD \
-    | grep -vE '^[0-9a-f]{40} ' | sort | uniq > /root/opt-gitlab-changes.txt
-
-cd /var/opt/gitlab/
-git init
-git add .
-git commit -m "new commit after running 'gitlab-ctl reconfigure'"
-
-git log --name-only --pretty=oneline --full-index HEAD^..HEAD \
-        | grep -vE '^[0-9a-f]{40} ' | sort | uniq > /root/var-opt-gitlab-changes.txt
-
-mv /opt/gitlab/embedded/nodes/tkldev.json /root/gitlab_embedded_nodes_tkldev.json
+# remove initially created files which will be auto-regenerated on new host
+rm /opt/gitlab/embedded/nodes/tkldev.json
+rm /etc/gitlab/gitlab-secrets.json
 
 # reset GitLab Postgres defaults
 sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|^|# |" $CONF
