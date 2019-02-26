@@ -1,0 +1,13 @@
+[Unit]
+Description=TurnKey inihooks firstboot GitLab Runit supervision process
+Wants=network-online.target
+After=network-online.target
+Conflicts=gitlab-runsvdir.service
+ConditionPathExists=/var/lib/inithooks/inithooks-gitlab-service.enabled
+
+[Service]
+ExecStart=/opt/gitlab/embedded/bin/runsvdir-start
+Restart=always
+
+[Install]
+WantedBy=basic.target

@@ -83,6 +83,7 @@ def main():
     inithooks_cache.write('APP_DOMAIN', domain)
     
     print("Reconfiguring GitLab. This might take a while. Please wait.")
+
     config = "/etc/gitlab/gitlab.rb"
     domain = "http://%s" % domain
     system("sed -i \"/^external_url/ s|'.*|'%s'|\" %s" % (domain, config))
@@ -114,15 +115,5 @@ def main():
     finally:
         os.remove(tmp_path)
 
-    print("Done\nReconfiguring GitLab. This might take a while too. Please wait (some more).")
-
-    config = "/etc/gitlab/gitlab.rb"
-    domain = "http://%s" % domain
-    system("sed -i \"/^external_url/ s|'.*|'%s'|\" %s" % (domain, config))
-    system("sed -i \"/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '%s'|\" %s" % (email, config))
-
-    system("gitlab-ctl reconfigure")
-    
 if __name__ == "__main__":
     main()
-

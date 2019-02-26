@@ -3,6 +3,24 @@
 
 . /etc/default/inithooks
 
-[ -e $INITHOOKS_CONF ] && . $INITHOOKS_CONF
-$INITHOOKS_PATH/bin/gitlab.py --pass="$APP_PASS" --email="$APP_EMAIL" --domain="$APP_DOMAIN"
+exit_status=0
 
+# if GitLab isn't already running, set it up to use the (temporary)
+# inithooks-gitlab-runsvdir.service
+if ! $(systemctl is-active --quiet inithooks-gitlab-runsvdir.service) \
+        && ! $(systemctl is-active --quiet gitlab-runsvdir.service); then
+    touch /var/lib/inithooks/inithooks-gitlab-service.enabled
+    systemctl start inithooks-gitlab-runsvdir.service
+fi
+
+[ -e $INITHOOKS_CONF ] && . $INITHOOKS_CONF
+$INITHOOKS_PATH/bin/gitlab.py --pass="$APP_PASS" --email="$APP_EMAIL" --domain="$APP_DOMAIN" \
+    || exit_status=1 # ensure that temp service is disabled even if gitlab inithook fails
+
+# disable the (temporary) inithooks-gitlab-runsvdir.service
+if $(systemctl is-active --quiet inithooks-gitlab-runsvdir.service); then
+    systemctl stop inithooks-gitlab-runsvdir.service
+    rm -rf /var/lib/inithooks/inithooks-gitlab-service.enabled
+fi
+
+exit $exit_status
