@@ -8,6 +8,10 @@ fi
 
 . /etc/tklbam/hooks.d/gitlab.conf
 
+# support override config (not included in backup)
+[[ -e /etc/tklbam/hooks.d/gitlab-override.conf ]] \
+    && . /etc/tklbam/hooks.d/gitlab-override.conf
+
 op=$1
 state=$2
 APP_NAME="gitlab-tklbam-hook"
