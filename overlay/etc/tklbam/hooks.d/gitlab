@@ -4,6 +4,7 @@
 
 if [[ $DEBUG = 'y' ]]; then
     set -x
+    CLR_BACKUP_DIR_TKLBAM=n
 fi
 
 . /etc/tklbam/hooks.d/gitlab.conf
@@ -11,6 +12,16 @@ fi
 # support override config (not included in backup)
 [[ -e /etc/tklbam/hooks.d/gitlab-override.conf ]] \
     && . /etc/tklbam/hooks.d/gitlab-override.conf
+
+# support for overriding some options via env vars
+[[ -n "$CLR_BACKUP_DIR_TKLBAM" ]] \
+    && clr_backup_dir_tklbam=$CLR_BACKUP_DIR_TKLBAM
+[[ -n "$TKLBAM_BACKUP_PROCESS_COMMAND" ]] \
+    && tklbam_backup_process_command=$TKLBAM_BACKUP_PROCESS_COMMAND
+[[ -n "$ROLLBACK_BACKUP" ]] \
+    && rollback_backup=$ROLLBACK_BACKUP
+[[ -n "$ATTEMPT_GITLAB_VERSION_MATCH" ]] \
+    && attempt_gitlab_version_match=$ATTEMPT_GITLAB_VERSION_MATCH
 
 op=$1
 state=$2
@@ -48,11 +59,6 @@ gitlab_restore() {
     info "Stopping Unicorn and Sidekiq services."
     gitlab-ctl stop unicorn
     gitlab-ctl stop sidekiq
-    is_down=$(gitlab-ctl status | grep ^down)
-    if ! $(echo "$is_down" | grep unicorn >/dev/null) \
-        || ! $(echo "$is_down" | grep sidekiq >/dev/null); then
-            fatal "Something has gone wrong. Unicorn and Sidekiq do not appear to have halted"
-    fi
     info "Restoring backup: $gitlab_backup_filename"
     echo -e "yes\nyes\n" | gitlab-rake gitlab:backup:restore BACKUP=${gitlab_backup_filename%_gitlab_backup.tar}
     info "Restarting GitLab and running some checks."
@@ -69,7 +75,7 @@ tmp_gitlab_service() {
             systemctl start inithooks-gitlab-runsvdir.service
         fi
     elif [[ $1 = 'stop' ]]; then
-        if ! $(systemctl is-active --quiet inithooks-gitlab-runsvdir.service); then
+        if $(systemctl is-active --quiet inithooks-gitlab-runsvdir.service); then
             info "Temp GitLab service detected, stopping."
             systemctl stop inithooks-gitlab-runsvdir.service
             rm -rf /var/lib/inithooks/inithooks-gitlab-service.enabled
@@ -160,16 +166,19 @@ EOF
             target_build=${target_pkg#gitlab-}
             apt-get update -qq
             pkgs=$(apt-cache policy $target_pkg | tr -s ' ' | sed "s|^ ||")
-            to_install=$(echo "$pgks" | grep "^$target_ver-$target_build")
+            to_install=$(echo "$pkgs" | grep "^$target_ver-$target_build")
             if [[ -n "$to_install" ]]; then
+                systemctl stop gitlab-runsvdir
                 warning "Removing the currently installed GitLab."
                 apt-get remove -y $target_pkg
                 rm -rf /opt/gitlab
                 rm -rf /var/opt/gitlab
-                warning "Attempting to install the required version of GitLab"
+                warning "Attempting to install the required version of GitLab. This might take a while..."
+                warning "This might take a while..."
                 apt-get install -y $target_pkg=${to_install% *}
-                warning "Attempting initial GitLab (re)configuration."
+                warning "Attempting initial GitLab (re)configuration. This might take a while too..."
                 gitlab-ctl reconfigure
+                info "Attempting to restore the TKLBAM GitLab backup"
                 gitlab_restore
             fi
         else
@@ -182,9 +191,17 @@ EOF
 # https://turnkeylinux.org/docs/gitlab#manual-restore-omnibus
 #
 # Alternatively, you can try the experimental GitLab version
-# matching script. To do that, please set 
+# matching script. To do that, please set ATTEMPT_GITLAB_VERSION_MATCH=y
+# and rerun the restore. I.e.:
+#
+#     export ATTEMPT_GITLAB_VERSION_MATCH=y
+#     tklbam-restore BACKUP_ID
+#
+# If you wish to set that permanently, please update
 #     attempt_gitlab_version_match=y
 # in the hook config file, /etc/tklbam/hooks.d/gitlab.conf
+# (Note this will only affect restores of backups made after the changes is
+# applied)
 #
 # For more info, please see:
 # https://turnkeylinux.org/docs/gitlab#experimental-version-match
@@ -196,16 +213,16 @@ EOF
    	else
     	info "Currently installed GitLab version matches TKLBAM backup GitLab version. Continuing restore."
         if [[ "$rollback_backup" = "y" ]]; then
-    	    info "Generating backup of GitLab to support rollback to current state (in case something goes wrong)."
-		    info "Depending on how much data there is in the current install, this may take a while..."
-            info "To disable this behavior, set 'rollback_backup=n' in /etc/tklbam/hooks.d/gitlab.conf"
+            info "Generating backup of GitLab to support rollback to current state (in case something goes wrong)."
+            info "Depending on how much data there is in the current install, this may take a while..."
+            info "To disable this behavior, see 'rollback_backup' in /etc/tklbam/hooks.d/gitlab.conf"
             gitlab_backup
             new_backup_file=$(ls -tp "$backup_dir_gitlab" | grep -v / | head -1)
+            "$tklbam_backup_process_command" "$backup_dir_gitlab/$new_backup_file" "$rollback_backup_dir"
             # the rollback_backup file is not processed any further
-            # default GitLab settings will remove it in 7 days
             info "Rollback GitLab backup is complete. To manually rollback this complete restore,"
             info "first use tklbam-rollback, i.e.:\n\ttklbam-restore-rollback"
-            info "Then manually restore the backup file: $backup_dir_gitlab/$new_backup_file"
+            info "Then manually restore the backup file: $rollback_backup_dir/$new_backup_file"
             info "For more details, please see https://turnkeylinux.org/docs/gitlab#rollback-omnibus"
         fi
         gitlab_restore
