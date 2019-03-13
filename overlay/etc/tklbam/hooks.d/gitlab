@@ -53,16 +53,15 @@ gitlab_restore() {
     gitlab_backup_filename=$(cat "$backup_dir_tklbam/gitlab_backup.tar.filename")
     cp "$backup_dir_tklbam/gitlab_backup.tar" "$backup_dir_gitlab/$gitlab_backup_filename"
     chown git:git "$backup_dir_gitlab/$gitlab_backup_filename"
-    info "Running gitlab-ctl reconfigure to ensure that everything is in place ready for data restore."
-    gitlab-ctl reconfigure
     info "Attempting to load GitLab backup data into GitLab."
     info "Stopping Unicorn and Sidekiq services."
     gitlab-ctl stop unicorn
     gitlab-ctl stop sidekiq
     info "Restoring backup: $gitlab_backup_filename"
     echo -e "yes\nyes\n" | gitlab-rake gitlab:backup:restore BACKUP=${gitlab_backup_filename%_gitlab_backup.tar}
-    info "Restarting GitLab and running some checks."
+    info "Reconfiguring and Restarting GitLab and running some checks."
     gitlab-ctl restart
+    gitlab-ctl reconfigure
     gitlab-rake gitlab:check SANITIZE=true
     info "Restore appears to have completed successfully. Yay. :)"
 }
