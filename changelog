@@ -2,11 +2,18 @@ turnkey-gitlab-15.2 (1) turnkey; urgency=low
 
   * GitLab:
 
-    - Major rewrite of install code to install using GitLab-CE Omnibus package
-      from GitLab upstream apt repo.
-    - Update to latest upstream stable version (11.6.0).
+    - Major rewrite of install code:
 
- -- Jeremy Davis <jeremy@turnkeylinux.org>  Wed, 30 Jan 2019 16:21:10 +1100
+        - Remove all custom source install components, including third party
+          installs of yarn, Golang, etc.
+        - Install GitLab-CE via Omnibus package from GitLab upstream apt repo
+          (as recommended by upstream - provides all dependencies).
+        - Provide TKLBAM hooks script to leverage built-in GitLab backup
+          mechanism.
+
+    - Update to latest upstream stable version - v11.8.1.
+
+ -- Jeremy Davis <jeremy@turnkeylinux.org>  Fri, 15 Mar 2019 07:28:56 +1100
 
 turnkey-gitlab-15.1 (1) turnkey; urgency=low
 
