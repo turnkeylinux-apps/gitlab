@@ -41,6 +41,17 @@ gitlab-ctl stop
 rm -f /opt/gitlab/embedded/nodes/tkldev.json
 rm -f /etc/gitlab/gitlab-secrets.json
 
+# remove unneeded default TurnKey Confconsole Let's Encrypt integration files
+# GitLab Omnibus provides it's own LE integration - GitLab specific Confconsole
+# files provided via overlay
+LE_DIR=/usr/lib/confconsole/plugins.d/Lets_Encrypt
+FILES="add-water cert_auto_renew.py dehydrated-wrapper *.pyc"
+for file in $FILES; do
+    rm -rf $LE_DIR/$file
+done
+# GitLab Omnibus includes it's own ACME client
+apt-get purge -y dehydrated
+
 # reset GitLab Postgres defaults
 sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|^|# |" $CONF
 sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|= 'none'|= nil|" $CONF

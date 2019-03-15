@@ -11,6 +11,9 @@ turnkey-gitlab-15.2 (1) turnkey; urgency=low
         - Provide TKLBAM hooks script to leverage built-in GitLab backup
           mechanism.
 
+    - Replace default Confconsole Let's Encrypt integration, with specific
+      GitLab one (leverages GitLab Omnibus LE integration).
+
     - Update to latest upstream stable version - v11.8.1.
 
  -- Jeremy Davis <jeremy@turnkeylinux.org>  Fri, 15 Mar 2019 07:28:56 +1100
