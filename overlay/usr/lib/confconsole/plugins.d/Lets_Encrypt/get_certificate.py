@@ -101,7 +101,7 @@ def run():
 
     domain = load_domain()
     m = invalid_domain(domain)
-    
+
     if m:
         ret = console.yesno(
                 (str(m) + '\n\nWould you like to ignore and overwrite data?'))
