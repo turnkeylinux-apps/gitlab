@@ -222,8 +222,8 @@ EOF
             multiline_msg warning "$msg"
             warning "GitLab version and backup mismatch; not attempting version matching. GitLab data unrestored"
         fi
-   	else
-    	info "Currently installed GitLab version matches TKLBAM backup GitLab version. Continuing restore."
+    else
+        info "Currently installed GitLab version matches TKLBAM backup GitLab version. Continuing restore."
         gitlab_restore
     fi
 fi
