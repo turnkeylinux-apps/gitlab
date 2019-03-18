@@ -1,48 +1,7 @@
 #include <turnkey/base>
 
-nginx
-redis-server
 apt-transport-https
-mysql-server
-default-libmysqlclient-dev
-libmysql++-dev
-webmin-mysql
-
-sqlite3
-libsqlite3-dev
-
-
-cmake
-pkg-config
-libkrb5-dev
-build-essential
-checkinstall
-
-ruby
-ruby-dev
-
-python-dev
-python-pygments
-
-libicu-dev
-libssl1.0-dev
-libxml2-dev
-libxslt1-dev
-libcurl4-openssl-dev
-libreadline-gplv2-dev
-libgdbm-dev
-libncurses5-dev
-libffi-dev
-zlib1g-dev
-libyaml-dev
-libre2-dev
-
-gettext
-acl
 
 sudo
-
-// JS runtime for ExecJS
-nodejs
 
 python-bcrypt

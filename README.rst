@@ -1,24 +1,24 @@
-GitLab - Self Hosted Git Management
-===================================
+GitLab - Self Hosted Git Management & DevOps Toolchain
+======================================================
 
-`GitLab`_ let's you keep & manage your code, similar to GitHub but on
-your own server. GitLab helps you manage projects, issues and merge
-requests and browse source code. It's a fast, secure and stable solution
-based on Ruby on Rails.
+`GitLab`_ is a single application for the entire software development
+lifecycle. From project planning and source code management to CI/CD,
+monitoring, and security. GitLab provides Git based version control,
+packaged with a complete DevOps toolchain. Somewhat like GitHub, but
+much, much more.
 
 This appliance includes all the standard features in `TurnKey Core`_,
 and on top of that:
 
 - GitLab configurations:
    
-   - GitLab, RubyGems and all other required components installed from
-     latest upstream versions.
-   - Set GitLab admin password and email on firstboot (convenience,
-     security).
+   - GitLab, RubyGems, PostgreSQL, Nginx and all other required
+     components installed from upstream `Omnibus package`_.
+   - Set GitLab admin user ('root') password and email on
+     firstboot (convenience, security).
    - Set GitLab domain to serve on first boot (convenience).
-   - Pre-configured to use MySQL (recommended for production).
-   - Includes Nginx pre-configured to proxy to unicorn daemon, with SSL
-     support out of the box (performance, security).
+   - Enbale GitLab Omnibus built-in Let's Encrypt certificates
+     via Confconsole plugin (under "Lets Encrypt").
 
 - Includes postfix MTA (bound to localhost) for sending of email (e.g.
   password recovery). Also includes webmin postfix module for
@@ -27,8 +27,9 @@ and on top of that:
 Credentials *(passwords set at first boot)*
 -------------------------------------------
 
--  Webmin, SSH, MySQL, Adminer: username **root**
--  GitLab: username is email set at first boot
+-  Webmin, SSH: username **root**
+-  GitLab: username **root**
 
-.. _GitLab: http://gitlabhq.com
+.. _GitLab: https://about.gitlab.com/
 .. _TurnKey Core: https://www.turnkeylinux.org/core
+.. _Omnibus package: https://docs.gitlab.com/omnibus/

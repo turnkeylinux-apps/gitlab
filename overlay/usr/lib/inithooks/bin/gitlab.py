@@ -1,16 +1,19 @@
 #!/usr/bin/python
-"""Set GitLab admin password, email and domain to serve
+"""Set GitLab root (admin) password, email and domain to serve
 
 Option:
     --pass=     unless provided, will ask interactively
     --email=    unless provided, will ask interactively
     --domain=   unless provided, will ask interactively
+                (can include schema)
                 DEFAULT=www.example.com
 """
 
 import sys
 import getopt
 import inithooks_cache
+import os
+import pwd
 
 from dialog_wrapper import Dialog
 from executil import ExecError, system
@@ -23,10 +26,7 @@ def usage(s=None):
     print >> sys.stderr, __doc__
     sys.exit(1)
 
-DEFAULT_DOMAIN="www.example.com"
-
-def system_gitlab(cmd):
-    system("sudo -u git -H sh -c", "cd /home/git/gitlab; %s" % cmd)
+DEFAULT_DOMAIN = "www.example.com"
 
 def main():
     try:
@@ -47,12 +47,14 @@ def main():
             email = val
         elif opt == '--domain':
             domain = val
+        elif opt == '--schema':
+            schema = val
 
     if not password:
         d = Dialog('TurnKey Linux - First boot configuration')
         password = d.get_password(
             "GitLab Password",
-            "Enter new password for the GitLab 'admin' account.",
+            "Enter new password for the GitLab 'root' account.",
             pass_req = 8)
 
     if not email:
@@ -61,7 +63,7 @@ def main():
 
         email = d.get_email(
             "GitLab Email",
-            "Enter email address for the GitLab 'admin' account.",
+            "Enter email address for the GitLab 'root' account.",
             "admin@example.com")
 
     inithooks_cache.write('APP_EMAIL', email)
@@ -80,31 +82,38 @@ def main():
 
     inithooks_cache.write('APP_DOMAIN', domain)
     
-    console_script = """ "
-      ActiveRecord::Base.logger.level = 1;
-      u = User.where(id: 1).first;
-      u.password = '%s';
-      u.email = '%s';
-      u.skip_reconfirmation!;
-      u.save!; " """ % (password, email)
+    print("Reconfiguring GitLab. This might take a while. Please wait.")
 
-    print("Please wait...")
-    system_gitlab("RAILS_ENV=production bundle exec rails r %s 2>&1 1>/dev/null" % console_script)
+    config = "/etc/gitlab/gitlab.rb"
+    domain = "http://%s" % domain
+    system("sed -i \"/^external_url/ s|'.*|'%s'|\" %s" % (domain, config))
+    system("sed -i \"/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '%s'|\" %s" % (email, config))
+    system("gitlab-ctl reconfigure")
 
-    config = "/home/git/gitlab/config/gitlab.yml"
-    system("sed -i \"s|host:.*|host: %s|\" %s" % (domain, config))
-    system("sed -i \"s|email_from:.*|email_from: %s|\" %s" % (email, config))
-
-    system("sed -i \"s|gitlab_url:.*|gitlab_url: http://%s/|\" %s" % (domain, '/home/git/gitlab-shell/config.yml'))
-
-    system_gitlab("git config --global user.email %s" % email)
-
-    # restart gitlab if it's running
+    print("Setting GitLab 'root' user password and email in database. This might take a while too. Please wait (again).")
+    tmp_dir = '/run/user/0'
+    tmp_file = '.gitlab-init.rb'
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
+    tmp_path = '/'.join([tmp_dir, tmp_file])
+    tmp_contents = """
+        ActiveRecord::Base.logger.level = 1
+        u = User.where(id: 1).first
+        u.password = u.password_confirmation = '{}'
+        u.email = '{}'
+        u.skip_reconfirmation!
+        u.save!
+        exit
+    """
+    flags = os.O_WRONLY | os.O_CREAT
+    with os.fdopen(os.open(tmp_path, flags, 0o600), 'w') as fob:
+        fob.write(tmp_contents.format(password, email))
+    uid = pwd.getpwnam('git').pw_uid
+    os.chown(tmp_path, uid, 0)
     try:
-        system("service gitlab restart")
-    except ExecError:
-        pass
+        system("gitlab-rails runner -e production %s" % tmp_path)
+    finally:
+        os.remove(tmp_path)
 
 if __name__ == "__main__":
     main()
-

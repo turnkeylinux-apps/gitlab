@@ -1,0 +1,229 @@
+#!/bin/bash -e
+
+# TKLBAM hook script for GitLab v15.2+
+
+if [[ $DEBUG = 'y' ]]; then
+    set -x
+    CLR_BACKUP_DIR_TKLBAM=n
+fi
+
+. /etc/tklbam/hooks.d/gitlab.conf
+
+# support override config (not included in backup)
+[[ -e /etc/tklbam/hooks.d/gitlab-override.conf ]] \
+    && . /etc/tklbam/hooks.d/gitlab-override.conf
+
+# support for overriding some options via env vars
+[[ -n "$CLR_BACKUP_DIR_TKLBAM" ]] \
+    && clr_backup_dir_tklbam=$CLR_BACKUP_DIR_TKLBAM
+[[ -n "$TKLBAM_BACKUP_PROCESS_COMMAND" ]] \
+    && tklbam_backup_process_command=$TKLBAM_BACKUP_PROCESS_COMMAND
+[[ -n "$ROLLBACK_BACKUP" ]] \
+    && rollback_backup=$ROLLBACK_BACKUP
+[[ -n "$ATTEMPT_GITLAB_VERSION_MATCH" ]] \
+    && attempt_gitlab_version_match=$ATTEMPT_GITLAB_VERSION_MATCH
+
+op=$1
+state=$2
+APP_NAME="gitlab-tklbam-hook"
+
+fatal() { echo -e "FATAL [$APP_NAME]: $@" 1>&2; exit 1; }
+warning() { echo -e "WARNING [$APP_NAME]: $@"; }
+info() { echo -e "INFO [$APP_NAME]: $@"; }
+
+multiline_msg() {
+    command=$1
+    shift
+    msg="$@"
+    IFS_BAK="$IFS"
+    IFS="
+"
+    for line in $msg; do
+        $command $line
+    done
+    IFS="$IFS_BAK"
+}
+
+gitlab_backup() {
+    /usr/bin/gitlab-rake gitlab:backup:create \
+        STRATEGY="$backup_strategy" SKIP="$backup_components_skip"
+}
+
+get_latest_gl_backup() {
+    ls -tp "$backup_dir_gitlab" | grep -v / | head -1
+}
+
+gitlab_restore() {
+    gitlab_backup_filename=$(cat "$backup_dir_tklbam/gitlab_backup.tar.filename")
+    cp "$backup_dir_tklbam/gitlab_backup.tar" "$backup_dir_gitlab/$gitlab_backup_filename"
+    chown git:git "$backup_dir_gitlab/$gitlab_backup_filename"
+    info "Attempting to load GitLab backup data into GitLab."
+    info "Stopping Unicorn and Sidekiq services."
+    gitlab-ctl stop unicorn
+    gitlab-ctl stop sidekiq
+    info "Restoring backup: $gitlab_backup_filename"
+    echo -e "yes\nyes\n" | gitlab-rake gitlab:backup:restore BACKUP=${gitlab_backup_filename%_gitlab_backup.tar}
+    info "Reconfiguring and Restarting GitLab and running some checks."
+    gitlab-ctl restart
+    gitlab-ctl reconfigure
+    gitlab-rake gitlab:check SANITIZE=true
+    info "Restore appears to have completed successfully. Yay. :)"
+}
+
+tmp_gitlab_service() {
+    if [[ $1 = 'start' ]]; then
+        if ! $(systemctl is-active --quiet gitlab-runsvdir.service); then
+            info "GitLab service not running, starting temp service"
+            touch /var/lib/inithooks/inithooks-gitlab-service.enabled
+            systemctl start inithooks-gitlab-runsvdir.service
+        fi
+    elif [[ $1 = 'stop' ]]; then
+        if $(systemctl is-active --quiet inithooks-gitlab-runsvdir.service); then
+            info "Temp GitLab service detected, stopping."
+            systemctl stop inithooks-gitlab-runsvdir.service
+            rm -rf /var/lib/inithooks/inithooks-gitlab-service.enabled
+        fi
+    else
+        fatal "Unknown service command $1"
+    fi
+}
+
+mkdir -p "$backup_dir_tklbam"
+
+if [[ "$state" = "pre" ]]; then
+
+    if [[ "$clr_backup_dir_tklbam" = "y" ]]; then
+        info "Pre backup/restore cache cleanup"
+        rm -rf "$backup_dir_tklbam/*"
+    fi
+
+    if [[ "$op" = "backup" ]]; then
+        info "Copying GitLab version info into backup cache"
+        cp /opt/gitlab/version-manifest.txt "$backup_dir_tklbam/"
+        tmp_gitlab_service start
+		info "Generating GitLab backup - this can take a while..."
+        gitlab_backup
+
+        new_backup_file=$(get_latest_gl_backup)
+        gitlab_backup_filename="$backup_dir_gitlab/$new_backup_file"
+        tklbam_backup_filename="$backup_dir_tklbam/gitlab_backup.tar"
+        echo "$new_backup_file" > "$tklbam_backup_filename.filename"
+
+        _command="$tklbam_backup_process_command $gitlab_backup_filename $tklbam_backup_filename"
+        info "Running command: $_command"
+        $_command
+        tmp_gitlab_service stop
+    elif [[ "$op" = "restore" ]]; then
+        if [[ "$rollback_backup" = "y" ]]; then
+            info "Generating backup of GitLab to support rollback to current state (in case something goes wrong)."
+            info "Depending on how much data there is in the current install, this may take a while..."
+            info "To disable this behavior, see 'rollback_backup' in /etc/tklbam/hooks.d/gitlab.conf"
+            gitlab_backup
+            new_backup_file=$(get_latest_gl_backup)
+            # note that the /etc/gitlab files will be saved as part of the default tklbam rollback data
+            "$tklbam_backup_process_command" "$backup_dir_gitlab/$new_backup_file" "$rollback_backup_dir"
+            # the rollback_backup file is not processed any further
+            info "Rollback GitLab backup is complete. To manually rollback this complete restore,"
+            info "first use tklbam-rollback, i.e.:\n\ttklbam-restore-rollback"
+            info "Then manually restore the backup file: $rollback_backup_dir/$new_backup_file"
+            info "For more details, please see https://turnkeylinux.org/docs/gitlab#rollback-omnibus"
+        fi
+    fi
+
+elif [[ "$state" = "post" ]] && [[ "$op" = "restore" ]]; then
+    installed_version=$(head -1 /opt/gitlab/version-manifest.txt)
+    installed_version=${installed_version:-NOT INSTALLED}
+    backup_version=$(head -1 "$backup_dir_tklbam/version-manifest.txt")
+    backup_version=${backup_version:-NOT FOUND}
+    if [[ "$installed_version" != "$backup_version" ]]; then
+        msg=$(cat <<EOF
+# WARNING
+# =======
+#
+# GitLab version installed: $installed_version
+# GitLab version of backup: $backup_version
+#
+# GitLab backup version and currently installed version of GitLab do not match.
+EOF
+        )
+        multiline_msg warning "$msg"
+        if [[ $backup_version = "NOT FOUND" ]]; then
+            msg=$(cat <<EOF
+#
+# As a version was not found, either there is an error with your backup, or you
+# are attempting to restore a GitLab backup from a previous source install.
+#
+# As TurnKey GitLab now utilises the Omnibus package, you will need to manually
+# migrate your data from previous versions of TurnKey GitLab before proceeding.
+#
+# For further info please see:
+# https://turnkeylinux.org/docs/gitlab#manually-migrate
+EOF
+            )
+            multiline_msg warning "$msg"
+            fatal "GitLab backup version not found."
+        elif [[ $attempt_gitlab_version_match = 'y' ]]; then
+            msg=$(cat <<EOF
+#
+# Attempting to match the GitLab version and restore the backup.
+#
+# Please note that this is experimental.
+#
+# Please report your results in the TurnKey forums:
+# https://www.turnkeylinux.org/forum
+EOF
+            )
+            multiline_msg warning "$msg"
+            target_ver=${backup_version##gitlab-* }
+            target_pkg=${backup_version% $target_ver}
+            target_build=${target_pkg#gitlab-}
+            apt-get update -qq
+            pkgs=$(apt-cache policy $target_pkg | tr -s ' ' | sed "s|^ ||")
+            to_install=$(echo "$pkgs" | grep "^$target_ver-$target_build")
+            if [[ -n "$to_install" ]]; then
+                systemctl stop gitlab-runsvdir
+                warning "Removing the currently installed GitLab."
+                apt-get remove -y $target_pkg
+                rm -rf /opt/gitlab
+                rm -rf /var/opt/gitlab
+                warning "Attempting to install the required version of GitLab. This might take a while..."
+                apt-get install -y $target_pkg=${to_install% *}
+                warning "Attempting initial GitLab (re)configuration. This might take a while too..."
+                gitlab-ctl reconfigure
+                info "Attempting to restore the TKLBAM GitLab backup"
+                gitlab_restore
+            fi
+        else
+            gitlab_backup_filename=$(cat "$backup_dir_tklbam/gitlab_backup.tar.filename")
+            msg=$(cat <<EOF
+#
+# All backup data has been restored, with the exception of the GitLab data backup.
+#
+# Manual restore of backup file ($backup_dir_gitlab/$gitlab_backup_filename) is required.
+#
+# For more info, please see:
+# https://turnkeylinux.org/docs/gitlab#manual-restore-omnibus
+#
+# Alternatively, you can try the experimental GitLab version matching script.
+# To do that, please set ATTEMPT_GITLAB_VERSION_MATCH=y and rerun the restore hook. I.e.:
+#
+#     export ATTEMPT_GITLAB_VERSION_MATCH=y
+#     /etc/tklbam/hooks.d/gitlab restore post
+#
+# If you wish to set that permanently, please update
+#     attempt_gitlab_version_match=y
+# in the hook config file, /etc/tklbam/hooks.d/gitlab.conf
+# (Note this will only affect restores of backups made after the changes is applied)
+#
+# For more info, please see:
+# https://turnkeylinux.org/docs/gitlab#experimental-version-match
+EOF
+            )
+            multiline_msg warning "$msg"
+            warning "GitLab version and backup mismatch; not attempting version matching. GitLab data unrestored"
+        fi
+    else
+        info "Currently installed GitLab version matches TKLBAM backup GitLab version. Continuing restore."
+        gitlab_restore
+    fi
+fi

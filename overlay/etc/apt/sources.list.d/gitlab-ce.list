@@ -1,0 +1,5 @@
+# this file was created by TurnKey Linux for use with the
+# repository at https://packages.gitlab.com/gitlab/gitlab-ce
+
+deb [signed-by=/usr/share/keyrings/gitlab-ce.gpg] https://packages.gitlab.com/gitlab/gitlab-ce/debian/ stretch main
+deb-src [signed-by=/usr/share/keyrings/gitlab-ce.gpg] https://packages.gitlab.com/gitlab/gitlab-ce/debian/ stretch main

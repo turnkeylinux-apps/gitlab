@@ -2,17 +2,21 @@ turnkey-gitlab-15.2 (1) turnkey; urgency=low
 
   * GitLab:
 
-    - Update to latest upstream stable version (11.5.4).
-    - Now install from stable branch (i.e. 'stable-11.5' currently) rather
-      than tag.
-    - Install Ruby 2.5.3 from source (newer GitLab requires newer Ruby).
-    - Tweak MariaDB/MySQL config to remove previous bug workaround - part of
-      #1259.
-    - Enable logrotate.
-    - Include documentation to upgrade to GitLab v11.5 for v15.0/v15.1 users.
-    - Various other minor config and install tweaks and updates.
+    - Major rewrite of install code:
 
- -- Jeremy Davis <jeremy@turnkeylinux.org>  Wed, 19 Dec 2018 11:01:06 +1100
+        - Remove all custom source install components, including third party
+          installs of yarn, Golang, etc.
+        - Install GitLab-CE via Omnibus package from GitLab upstream apt repo
+          (as recommended by upstream - provides all dependencies).
+        - Provide TKLBAM hooks script to leverage built-in GitLab backup
+          mechanism.
+
+    - Replace default Confconsole Let's Encrypt integration, with specific
+      GitLab one (leverages GitLab Omnibus LE integration).
+
+    - Update to latest upstream stable version - v11.8.1.
+
+ -- Jeremy Davis <jeremy@turnkeylinux.org>  Fri, 15 Mar 2019 07:28:56 +1100
 
 turnkey-gitlab-15.1 (1) turnkey; urgency=low
 
