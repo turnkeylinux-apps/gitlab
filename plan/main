@@ -1,7 +1,6 @@
 #include <turnkey/base>
 
 apt-transport-https
-webmin-postgresql
 
 sudo
 

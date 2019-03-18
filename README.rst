@@ -14,9 +14,11 @@ and on top of that:
    
    - GitLab, RubyGems, PostgreSQL, Nginx and all other required
      components installed from upstream `Omnibus package`_.
-   - Set GitLab admin user ('root') password and email set on
+   - Set GitLab admin user ('root') password and email on
      firstboot (convenience, security).
    - Set GitLab domain to serve on first boot (convenience).
+   - Enbale GitLab Omnibus built-in Let's Encrypt certificates
+     via Confconsole plugin (under "Lets Encrypt").
 
 - Includes postfix MTA (bound to localhost) for sending of email (e.g.
   password recovery). Also includes webmin postfix module for
