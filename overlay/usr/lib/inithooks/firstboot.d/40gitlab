@@ -23,4 +23,6 @@ if $(systemctl is-active --quiet inithooks-gitlab-runsvdir.service); then
     rm -rf /var/lib/inithooks/inithooks-gitlab-service.enabled
 fi
 
+gitlab-rails runner -e production "ApplicationSetting.current.reset_runners_registration_token!"
+
 exit $exit_status
