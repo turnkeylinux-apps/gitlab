@@ -96,6 +96,7 @@ def main():
     if not os.path.exists(tmp_dir):
         os.makedirs(tmp_dir)
     tmp_path = '/'.join([tmp_dir, tmp_file])
+    # include token resetting here now (just before 'exit'); should fix #1315/#1342 for good!
     tmp_contents = """
         ActiveRecord::Base.logger.level = 1
         u = User.where(id: 1).first
@@ -103,6 +104,7 @@ def main():
         u.email = '{}'
         u.skip_reconfirmation!
         u.save!
+        ApplicationSetting.current.reset_runners_registration_token!
         exit
     """
     flags = os.O_WRONLY | os.O_CREAT
@@ -112,6 +114,7 @@ def main():
     os.chown(tmp_path, uid, 0)
     try:
         system("gitlab-rails runner -e production %s" % tmp_path)
+        print("Done.")
     finally:
         os.remove(tmp_path)
 
