@@ -23,6 +23,7 @@ if $(systemctl is-active --quiet inithooks-gitlab-runsvdir.service); then
     rm -rf /var/lib/inithooks/inithooks-gitlab-service.enabled
 fi
 
-gitlab-rails runner -e production "ApplicationSetting.current.reset_runners_registration_token!"
+# moved token reset to $INITHOOKS_PATH/bin/gitlab.py - at the same time as
+# setting password - should fix #1315/#1342 for good!
 
 exit $exit_status

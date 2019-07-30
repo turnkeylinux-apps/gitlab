@@ -1,3 +1,12 @@
+turnkey-gitlab-15.5 (1) turnkey; urgency=low
+
+  * Update GitLab to latest upstream stable version - v12.1.1.
+
+  * Final fix for race condition/500 error on log in (hopefully) - closes
+    #1342
+
+ -- Jeremy Davis <jeremy@turnkeylinux.org>  Mon, 29 Jul 2019 13:54:34 +1000
+
 turnkey-gitlab-15.4 (1) turnkey; urgency=low
 
   * Properly Fix initial 500 Error on log in - closes #1315.
