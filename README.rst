@@ -22,7 +22,7 @@ and on top of that:
    - Set GitLab admin user ('root') password and email on
      firstboot (convenience, security).
    - Set GitLab domain to serve on first boot (convenience).
-   - Enbale GitLab Omnibus built-in Let's Encrypt certificates
+   - Enable GitLab Omnibus built-in Let's Encrypt certificates
      via Confconsole plugin (under "Lets Encrypt").
 
 - Includes postfix MTA (bound to localhost) for sending of email (e.g.
