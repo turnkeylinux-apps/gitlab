@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """Set GitLab root (admin) password, email and domain to serve
 
 Option:
@@ -14,16 +14,16 @@ import getopt
 import inithooks_cache
 import os
 import pwd
+import subprocess
 
 from dialog_wrapper import Dialog
-from executil import ExecError, system
 
 
 def usage(s=None):
     if s:
-        print >> sys.stderr, "Error:", s
-    print >> sys.stderr, "Syntax: %s [options]" % sys.argv[0]
-    print >> sys.stderr, __doc__
+        print("Error:", s, file=sys.stderr)
+    print("Syntax: %s [options]" % sys.argv[0], file=sys.stderr)
+    print(__doc__, file=sys.stderr)
     sys.exit(1)
 
 DEFAULT_DOMAIN = "www.example.com"
@@ -32,7 +32,7 @@ def main():
     try:
         opts, args = getopt.gnu_getopt(sys.argv[1:], "h",
                                        ['help', 'pass=', 'email=', 'domain='])
-    except getopt.GetoptError, e:
+    except getopt.GetoptError as e:
         usage(e)
 
     email = ""
@@ -86,9 +86,9 @@ def main():
 
     config = "/etc/gitlab/gitlab.rb"
     domain = "http://%s" % domain
-    system("sed -i \"/^external_url/ s|'.*|'%s'|\" %s" % (domain, config))
-    system("sed -i \"/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '%s'|\" %s" % (email, config))
-    system("gitlab-ctl reconfigure")
+    subprocess.run(["sed", "-i", "/^external_url/ s|'.*|'%s'|" % domain, config])
+    subprocess.run(["sed", "-i", "/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '%s'|" % email, config])
+    subprocess.run(["gitlab-ctl", "reconfigure"])
 
     print("Setting GitLab 'root' user password and email in database. This might take a while too. Please wait (again).")
     tmp_dir = '/run/user/0'
@@ -113,7 +113,7 @@ def main():
     uid = pwd.getpwnam('git').pw_uid
     os.chown(tmp_path, uid, 0)
     try:
-        system("gitlab-rails runner -e production %s" % tmp_path)
+        subprocess.run(["gitlab-rails", "runner", "-e", "production", tmp_path])
         print("Done.")
     finally:
         os.remove(tmp_path)
