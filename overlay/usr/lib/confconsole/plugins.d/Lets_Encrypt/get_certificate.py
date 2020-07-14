@@ -1,7 +1,6 @@
 """Get Let's Encrypt SSl cert"""
 
 import requests
-from executil import system
 import subprocess
 from os import path, remove
 
@@ -10,7 +9,7 @@ import sys
 sys.path.append('/usr/lib/inithooks/bin')
 import inithooks_cache
 
-LE_INFO_URL = 'https://acme-v01.api.letsencrypt.org/directory'
+LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
 TITLE = 'Certificate Creation Wizard (GitLab)'
 
@@ -57,7 +56,7 @@ def invalid_domain(domain):
 
 def uncomment(file_name, search_term):
     '''Dirty function that leverages sed.'''
-    system("sed -i \"/{}/ s|^# *||\" {}".format(search_term, filename))
+    subprocess.run(["sed", "-i", "/{}/ s|^# *||".format(search_term), filename])
 
 def run():
     field_width = 60
@@ -65,15 +64,12 @@ def run():
 
     canceled = False
 
+    tos_url = None
     try:
         response = requests.get(LE_INFO_URL)
-        tos_url = response.json()['meta']['terms-of-service']
-    except ConnectionError:
-        msg = 'Connection error. Failed to connect to '+LE_INFO_URL
-    except JSONDecodeError:
-        msg = 'Data error, no JSON data found'
-    except KeyError:
-        msg = 'Data error, no value found for "terms-of-service"'
+        tos_url = response.json()['meta']['termsOfService']
+    except requests.exceptions.RequestException as e:
+        msg = "Failed to connect get data from '{}': '{}'".format(LE_INFO_URL, e)
     if not tos_url:
         console.msgbox('Error', msg, autosize=True)
         return
@@ -85,7 +81,7 @@ def run():
         'certificates.\n\nDo you wish to continue?',
         autosize=True
     )
-    if ret:
+    if ret != 'ok':
         return
 
     ret = console.yesno(
@@ -96,7 +92,7 @@ def run():
         "Do you agree to the Let's Encrypt Terms of Service?",
         autosize=True
     )
-    if ret:
+    if ret != 'ok':
         return
 
     domain = load_domain()
@@ -105,7 +101,7 @@ def run():
     if m:
         ret = console.yesno(
                 (str(m) + '\n\nWould you like to ignore and overwrite data?'))
-        if not ret:
+        if ret == 'ok':
             remove(domain_path)
             domain = load_domain()
         else:
@@ -116,12 +112,12 @@ def run():
     while True:
         while True:
             field = [
-                ('Domain', value, field_width, 255),
+                ('Domain', 1, 0, value, 1, 10, field_width, 255),
             ]
             ret, value = console.form(TITLE, DESC, field, autosize=True)
             if len(value) >= 1:
                 value = value[0]
-            if ret != 0:
+            if ret != 'ok':
                 canceled = True
                 break
 
@@ -130,9 +126,9 @@ def run():
                 console.msgbox('Error', msg)
                 continue
 
-            if ret is 0:
+            if ret == 'ok':
                 ret2 = console.yesno('This will overwrite previous settings and check for certificate, continue?')
-                if ret2 is 0:
+                if ret2 == 'ok':
                     save_domain(value)
                     break
 
@@ -141,13 +137,13 @@ def run():
 
         config = "/etc/gitlab/gitlab.rb"
         domain = "https://{}".format(domain)
-        system("sed -i \"/^external_url/ s|'.*|'{}'|\" {}".format(domain, config))
-        system("sed -i \"/letsencrypt\['enable'\]/ s|^# *||\" {}".format(config))
-        system("sed -i \"/^letsencrypt\['enable'\]/ s|=.*|= true|\" {}".format(config))
-        system("sed -i \"/letsencrypt\['auto_renew'\]/ s|^# *||\" {}".format(config))
-        system("sed -i \"/^letsencrypt\['auto_renew'\]/ s|=.*|= true|\" {}".format(config))
+        subprocess.run(["sed", "-i", "/^external_url/ s|'.*|'{}'|".format(domain), config])
+        subprocess.run(["sed", "-i", "/letsencrypt\['enable'\]/ s|^# *||", config])
+        subprocess.run(["sed", "-i", "/^letsencrypt\['enable'\]/ s|=.*|= true|", config])
+        subprocess.run(["sed", "-i", "/letsencrypt\['auto_renew'\]/ s|^# *||", config])
+        subprocess.run(["sed", "-i", "/^letsencrypt\['auto_renew'\]/ s|=.*|= true|", config])
         print('Running gitlab-ctl reconfigure. This might take a while...')
-        exit_code = subprocess.call(['gitlab-ctl', 'reconfigure'])
+        exit_code = subprocess.run(['gitlab-ctl', 'reconfigure']).returncode
 
         if exit_code != 0:
             console.msgbox('GitLab Error!', 'Something went wrong!\nPlease check that '
