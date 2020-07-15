@@ -7,6 +7,9 @@ APP_NAME="TurnKey GitLab"
 DISPLAY_NAME="$APP_NAME Admin"
 CONF=/etc/gitlab/gitlab.rb
 
+APT_KEY_URL=https://packages.gitlab.com/gpg.key
+curl -sS $APT_KEY_URL | apt-key --keyring /usr/share/keyrings/gitlab-ce.gpg add -
+
 apt-get update
 
 EXTERNAL_URL="http://gitlab.example.com" apt-get install gitlab-ce -y
