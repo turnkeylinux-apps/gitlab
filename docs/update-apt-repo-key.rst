@@ -32,7 +32,7 @@ How to update the GitLab GPG key
 Assuming that the new keyfile provided by GitLab is the same as it was when
 they rotated their keys (April 2020), then this will resolve the issue::
 
-   curl https://packages.gitlab.com/gpg.key -O /tmp/gitlab-ce.key
+   curl -o /tmp/gitlab-ce.key https://packages.gitlab.com/gpg.key
    apt-key --keyring /usr/share/keyrings/gitlab-ce.gpg add /tmp/gitlab-ce.key
 
 Note that if you are not running as root, 'sudo' will be required for the
