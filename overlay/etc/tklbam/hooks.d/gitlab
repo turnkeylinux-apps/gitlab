@@ -70,18 +70,19 @@ gitlab_restore() {
     info "Restore appears to have completed successfully. Yay. :)"
 }
 
-tmp_gitlab_service() {
+gitlab_service() {
     if [[ $1 = 'start' ]]; then
         if ! $(systemctl is-active --quiet gitlab-runsvdir.service); then
-            info "GitLab service not running, starting temp service"
-            touch /var/lib/inithooks/inithooks-gitlab-service.enabled
-            systemctl start inithooks-gitlab-runsvdir.service
+            info "GitLab service not running, starting service."
+            touch /var/lib/inithooks/gitlab-service.started
+            systemctl start gitlab-runsvdir.service
         fi
     elif [[ $1 = 'stop' ]]; then
-        if $(systemctl is-active --quiet inithooks-gitlab-runsvdir.service); then
-            info "Temp GitLab service detected, stopping."
-            systemctl stop inithooks-gitlab-runsvdir.service
-            rm -rf /var/lib/inithooks/inithooks-gitlab-service.enabled
+        if $(systemctl is-active --quiet gitlab-runsvdir.service) && \
+            [[ -f "/var/lib/inithooks/gitlab-service.started" ]]; then
+                info "GitLab service was started so now stopping."
+                systemctl stop gitlab-runsvdir.service
+                rm -rf /var/lib/inithooks/gitlab-service.started
         fi
     else
         fatal "Unknown service command $1"
@@ -100,7 +101,7 @@ if [[ "$state" = "pre" ]]; then
     if [[ "$op" = "backup" ]]; then
         info "Copying GitLab version info into backup cache"
         cp /opt/gitlab/version-manifest.txt "$backup_dir_tklbam/"
-        tmp_gitlab_service start
+        gitlab_service start
 		info "Generating GitLab backup - this can take a while..."
         gitlab_backup
 
@@ -112,7 +113,7 @@ if [[ "$state" = "pre" ]]; then
         _command="$tklbam_backup_process_command $gitlab_backup_filename $tklbam_backup_filename"
         info "Running command: $_command"
         $_command
-        tmp_gitlab_service stop
+        gitlab_service stop
     elif [[ "$op" = "restore" ]]; then
         if [[ "$rollback_backup" = "y" ]]; then
             info "Generating backup of GitLab to support rollback to current state (in case something goes wrong)."
