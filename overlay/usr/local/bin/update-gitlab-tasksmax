@@ -1,0 +1,14 @@
+#!/bin/bash -ex
+
+service=gitlab-runsvdir.service
+path=systemd/system
+
+default_svc=/lib/$path/$service
+turnkey_svc=/etc/$path/$service
+
+default_tasksmax=$(grep 'TasksMax=' $default_svc)
+turnkey_tasksmax=$(grep 'TasksMax=' $turnkey_svc)
+
+if [[ "$default_tasksmax" != "$turnkey_tasksmax" ]]; then
+    sed -i "s|^TasksMax=.*|${default_tasksmax}|" $turnkey_svc
+fi

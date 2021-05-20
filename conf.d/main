@@ -17,7 +17,7 @@ EXTERNAL_URL="http://gitlab.example.com" apt-get install gitlab-ce -y
 # tweak GitLab defaults for build within TKLDev
 sed -i "/^external_url/ s|'.*|'http://$DOMAIN'|" $CONF
 sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|^# *||" $CONF
-sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|=.*|= 'none'|" $CONF
+sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|=.*|= 'mmap'|" $CONF
 sed -i "/postgresql\['shared_buffers'\]/ s|^# *||" $CONF
 sed -i "/postgresql\['shared_buffers'\]/ s|=.*|= \"100MB\"|" $CONF
 
@@ -31,6 +31,8 @@ sed -i "/gitlab_rails\['gitlab_email_subject_suffix'\]/ s|^# *||" $CONF
 sed -i "/gitlab_rails\['gitlab_email_subject_suffix'\]/ s|=.*|= '\[$APP_NAME\]'|" $CONF
 
 # set up GitLab
+export LC_ALL=C.UTF-8 # explicitly set UTF8 to avoid GitLab bitchin...
+service gitlab-runsvdir start
 gitlab-ctl reconfigure
 
 # disable GitLab WebUI prompting to set 'root' GitLab user password (TurnKey
@@ -57,6 +59,11 @@ apt-get purge -y dehydrated
 
 # reset GitLab Postgres defaults
 sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|^|# |" $CONF
-sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|= 'none'|= nil|" $CONF
+sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|= 'mmap'|= nil|" $CONF
 sed -i "/postgresql\['shared_buffers'\]/ s|^|# |" $CONF
 sed -i "/postgresql\['shared_buffers'\]/ s|=.*|= \"256MB\"|" $CONF
+
+service gitlab-runsvdir stop
+# ensure that the overlay turnkey service is the one that is enabled
+systemctl disable gitlab-runsvdir.service
+systemctl enable gitlab-runsvdir.service

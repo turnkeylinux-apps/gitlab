@@ -1,0 +1,11 @@
+[Unit]
+Description=TurnKey wrapped GitLab Runit supervision process
+After=network-online.target
+
+[Service]
+ExecStart=/opt/gitlab/embedded/bin/runsvdir-start
+Restart=always
+TasksMax=4915
+
+[Install]
+WantedBy=basic.target
