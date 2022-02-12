@@ -33,7 +33,6 @@ sed -i "/gitlab_rails\['gitlab_email_subject_suffix'\]/ s|=.*|= '\[$APP_NAME\]'|
 # set up GitLab
 export LC_ALL=C.UTF-8 # explicitly set UTF8 to avoid GitLab bitchin...
 service gitlab-runsvdir start
-sleep 1
 
 # https://gitlab.com/gitlab-org/omnibus-gitlab/-/issues/3552#note_88614190
 touch /.dockerenv
