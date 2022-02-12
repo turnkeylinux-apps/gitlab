@@ -11,12 +11,12 @@ Option:
 
 import sys
 import getopt
-import inithooks_cache
+from libinithooks import inithooks_cache
 import os
 import pwd
 import subprocess
 
-from dialog_wrapper import Dialog
+from libinithooks.dialog_wrapper import Dialog
 
 
 def usage(s=None):
