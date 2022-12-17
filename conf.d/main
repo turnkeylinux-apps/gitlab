@@ -47,6 +47,8 @@ echo -e "$ADMIN_PASS\n$ADMIN_PASS\n" | gitlab-rake 'gitlab:password:reset[root]'
 gitlab-psql -c "UPDATE users SET password_automatically_set='f' WHERE id = 1;"
 gitlab-psql -c "UPDATE users SET reset_password_token='' WHERE id = 1;"
 
+# fix occasional postgres stop timeout
+while ! gitlab-ctl stop postgresql | grep -q 'ok: down'; do sleep 1; done
 gitlab-ctl stop
 
 # remove initially created files which will be auto-regenerated on new host
