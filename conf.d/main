@@ -7,6 +7,8 @@ APP_NAME="TurnKey GitLab"
 DISPLAY_NAME="$APP_NAME Admin"
 CONF=/etc/gitlab/gitlab.rb
 
+[ "$FAB_HTTP_PROXY" ] && export http_proxy=$FAB_HTTP_PROXY
+
 APT_KEY_URL=https://packages.gitlab.com/gpg.key
 curl -sS $APT_KEY_URL | apt-key --keyring /usr/share/keyrings/gitlab-ce.gpg add -
 
@@ -72,3 +74,5 @@ service gitlab-runsvdir stop
 # ensure that the overlay turnkey service is the one that is enabled
 systemctl disable gitlab-runsvdir.service
 systemctl enable gitlab-runsvdir.service
+
+unset http_proxy
