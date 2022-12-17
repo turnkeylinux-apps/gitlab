@@ -43,6 +43,7 @@ gitlab-ctl reconfigure
 
 # disable GitLab WebUI prompting to set 'root' GitLab user password (TurnKey
 # sets GitLab 'root' user password via inithook)
+echo -e "$ADMIN_PASS\n$ADMIN_PASS\n" | gitlab-rake 'gitlab:password:reset[root]'
 gitlab-psql -c "UPDATE users SET password_automatically_set='f' WHERE id = 1;"
 gitlab-psql -c "UPDATE users SET reset_password_token='' WHERE id = 1;"
 
