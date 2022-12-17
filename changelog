@@ -1,11 +1,11 @@
-turnkey-gitlab-16.1 (1) turnkey; urgency=low
+turnkey-gitlab-17.0 (1) turnkey; urgency=low
 
-  * Update GitLab to latest upstream stable version - v14.7.2.
+  * Update GitLab to latest upstream stable version - v15.6.2.
 
   * Note: Please refer to turnkey-core's 17.0 changelog for changes common to all
     appliances. Here we only describe changes specific to this appliance.
 
- -- Zhenya Hvorostian <zhenya@turnkeylinux.org>  Sat, 12 Feb 2022 22:24:10 +0300
+ -- Anton Pyrogovskyi <anton@turnkeylinux.org>  Sat, 17 Dec 2022 19:04:14 +0100
 
 turnkey-gitlab-16.1 (1) turnkey; urgency=low
 
