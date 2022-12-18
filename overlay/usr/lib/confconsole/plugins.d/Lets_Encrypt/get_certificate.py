@@ -1,4 +1,4 @@
-"""Get Let's Encrypt SSl cert"""
+
 
 import requests
 import subprocess
@@ -153,3 +153,4 @@ def run():
                 'file ({}).\n\nFor full details, please try running \'gitlab-ctl '
                 'reconfigure\' from the commandline.\n\nAlso see:\n'
                 'https://docs.gitlab.com/omnibus/settings/ssl.html'.format(domain, config))
+                
