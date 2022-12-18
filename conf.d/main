@@ -31,7 +31,7 @@ sed -i "/gitlab_rails\['gitlab_email_subject_suffix'\]/ s|^# *||" $CONF
 sed -i "/gitlab_rails\['gitlab_email_subject_suffix'\]/ s|=.*|= '\[$APP_NAME\]'|" $CONF
 
 # set up GitLab
-export LC_ALL=C.UTF-8 # explicitly set UTF8 to avoid GitLab bitchin...
+export: LC_ALL=C.UTF-8 # explicitly set UTF8 to avoid GitLab bitchin...
 service gitlab-runsvdir start
 sleep 1
 
