@@ -1,4 +1,6 @@
+
 /.idea/
+
 /www/upload/
 /www/asset/
 /var/cache/
@@ -49,3 +51,4 @@ git.php
 /.htpasswd
 
 /usr/custom/module/user/config/form.register.php
+
