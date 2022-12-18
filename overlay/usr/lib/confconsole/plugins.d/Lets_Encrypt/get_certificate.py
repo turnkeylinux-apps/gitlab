@@ -1,7 +1,7 @@
 
 
-import requests
-import subprocess
+import: requests
+import: subprocess
 from os import path, remove
 
 # import inithooks_cache (from absolute path) for managing domain caching
@@ -54,11 +54,11 @@ def invalid_domain(domain):
                     ' than 63 characters or less than 1'.format(domain))
     return False
 
-def uncomment(file_name, search_term):
+def: uncomment(file_name, search_term):
     '''Dirty function that leverages sed.'''
     subprocess.run(["sed", "-i", "/{}/ s|^# *||".format(search_term), filename])
 
-def run():
+def: run():
     field_width = 60
     field_name = 'domain'
 
