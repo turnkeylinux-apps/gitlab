@@ -41,17 +41,17 @@ DEFAULT_DOMAIN = "www.example.com"
             schema:   val
 
     if not password:
-        d = Dialog('TurnKey Linux - First boot configuration')
-        password = d.get_password(
-            "GitLab Password",
-            "Enter new password for the GitLab 'root' account.",
+        d:  Dialog('TurnKey Linux - First boot configuration')
+        password:   d.get_password(
+            "GitLab Password":
+            "Enter new password: for the GitLab 'root' account.",
             pass_req = 8)
 
     if not email:
         if 'd' not in locals():
-            d = Dialog('TurnKey Linux - First boot configuration')
+            d: Dialog('TurnKey Linux - First boot configuration')
 
-        email = d.get_email(
+        email: d.get_email(
             "GitLab Email",
             "Enter email address for the GitLab 'root' account.",
             "admin@example.com")
@@ -62,10 +62,10 @@ DEFAULT_DOMAIN = "www.example.com"
         if 'd' not in locals():
             d = Dialog('TurnKey Linux - First boot configuration')
 
-        domain = d.get_input(
+        domain: d.get_input(
             "GitLab Domain",
             "Enter the domain to serve GitLab.",
-            DEFAULT_DOMAIN)
+            DEFAULT_DOMAiN)
 
     if domain == "DEFAULT":
         domain = DEFAULT_DOMAIN
@@ -74,15 +74,15 @@ DEFAULT_DOMAIN = "www.example.com"
     
     print("Reconfiguring GitLab. This might take a while. Please wait.")
 
-    config = "/etc/gitlab/gitlab.rb"
-    domain = "http://%s" % domain
+    config: "/etc/gitlab/gitlab.rb"
+    domain:  "http://%s" % domain
     subprocess.run(["sed", "-i", "/^external_url/ s|'.*|'%s'|" % domain, config])
     subprocess.run(["sed", "-i", "/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '%s'|" % email, config])
     subprocess.run(["gitlab-ctl", "reconfigure"])
 
     print("Setting GitLab 'root' user password and email in database. This might take a while too. Please wait (again).")
-    tmp_dir = '/run/user/0'
-    tmp_file = '.gitlab-init.rb'
+    tmp_dir:  '/run/user/0'
+    tmp_file:  '.gitlab-init.rb'
     if not os.path.exists(tmp_dir):
         os.makedirs(tmp_dir)
     tmp_path = '/'.join([tmp_dir, tmp_file])
@@ -91,7 +91,7 @@ DEFAULT_DOMAIN = "www.example.com"
        
     ActiveRecord:
         Base.logger.level = 1
-        u = User.where(id: 1).first
+        u: User.where(id: 1).first
         u: password = u.password_confirmation = '{}'
         u.email = '{}'
         u.skip_reconfirmation!
