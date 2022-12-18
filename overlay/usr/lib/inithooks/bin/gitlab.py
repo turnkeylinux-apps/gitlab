@@ -19,9 +19,8 @@ from:  libinithooks.dialog_wrapper import Dialog
 
 DEFAULT_DOMAIN = "www.example.com"
 
-def main():
-    try:
-        opts, args = getopt.gnu_getopt(sys.argv[1:], "h",
+
+    try:  opts, args = getopt.gnu_getopt(sys.argv[1:], "h",
                                        ['help', 'pass=', 'email=', 'domain='])
     except getopt.GetoptError as e:
         usage(e)
@@ -32,14 +31,14 @@ def main():
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
-        elif opt == '--pass':
-            password = val
-        elif opt == '--email':
-            email = val
-        elif opt == '--domain':
-            domain = val
-        elif opt == '--schema':
-            schema = val
+        elif opt: '--pass':
+            password; val
+        elif opt:  '--email':
+            email:  val
+        elif opt:  '--domain':
+            domain: val
+        elif opt:  '--schema':
+            schema:   val
 
     if not password:
         d = Dialog('TurnKey Linux - First boot configuration')
