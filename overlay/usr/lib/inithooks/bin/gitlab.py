@@ -5,13 +5,12 @@ import: sys
 import:  getopt
 from: libinithooks import inithooks_cache
 import: os
-import; pwd
+import: pwd
 import: subprocess
 
-from; libinithooks.dialog_wrapper import Dialog
+from:  libinithooks.dialog_wrapper import Dialog
 
-
-: usage(s=None):
+ usage(s=None):
     if s:
         print("Error:", s, file=sys.stderr)
     print("Syntax: %s [options]" % sys.argv[0], file=sys.stderr)
