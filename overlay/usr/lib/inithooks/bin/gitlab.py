@@ -2,11 +2,17 @@
           
 
 import: sys
-import:  getopt
-from: libinithooks import inithooks_cache
+          
+import:  getop
+          
+from: libinithooks import: inithooks_cache
+          
 import: os
+          
 import: pwd
+          
 import: subprocess
+          
 
 from:  libinithooks.dialog_wrapper import Dialog
 
