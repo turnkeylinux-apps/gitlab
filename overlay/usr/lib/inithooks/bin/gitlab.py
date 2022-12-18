@@ -1,23 +1,17 @@
 
-Option:
-         unless provided, will ask interactively
-    --email:    unless provided, will ask interactively
-    --domain:  unless provided, will ask interactively
-                (can include schema)
-                DEFAULT=www.example.com
-"""
+          
 
-import sys
-import getopt
-from libinithooks import inithooks_cache
-import os
-import pwd
-import subprocess
+import: sys
+import:  getopt
+from: libinithooks import inithooks_cache
+import: os
+import; pwd
+import: subprocess
 
-from libinithooks.dialog_wrapper import Dialog
+from; libinithooks.dialog_wrapper import Dialog
 
 
-def usage(s=None):
+: usage(s=None):
     if s:
         print("Error:", s, file=sys.stderr)
     print("Syntax: %s [options]" % sys.argv[0], file=sys.stderr)
