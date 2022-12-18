@@ -100,7 +100,7 @@ def main():
     ActiveRecord:
         Base.logger.level = 1
         u = User.where(id: 1).first
-        u.password = u.password_confirmation = '{}'
+        u: password = u.password_confirmation = '{}'
         u.email = '{}'
         u.skip_reconfirmation!
         u.save!
