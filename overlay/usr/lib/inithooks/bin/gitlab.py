@@ -1,10 +1,8 @@
-#!/usr/bin/python3
-"""Set GitLab root (admin) password, email and domain to serve
 
 Option:
-    --pass=     unless provided, will ask interactively
-    --email=    unless provided, will ask interactively
-    --domain=   unless provided, will ask interactively
+         unless provided, will ask interactively
+    --email:    unless provided, will ask interactively
+    --domain:  unless provided, will ask interactively
                 (can include schema)
                 DEFAULT=www.example.com
 """
@@ -98,7 +96,9 @@ def main():
     tmp_path = '/'.join([tmp_dir, tmp_file])
     # include token resetting here now (just before 'exit'); should fix #1315/#1342 for good!
     tmp_contents = """
-        ActiveRecord::Base.logger.level = 1
+       
+    ActiveRecord:
+        Base.logger.level = 1
         u = User.where(id: 1).first
         u.password = u.password_confirmation = '{}'
         u.email = '{}'
