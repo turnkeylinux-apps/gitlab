@@ -1,25 +1,22 @@
-#!/usr/bin/python3
-"""Set GitLab root (admin) password, email and domain to serve
 
-Option:
-    --pass=     unless provided, will ask interactively
-    --email=    unless provided, will ask interactively
-    --domain=   unless provided, will ask interactively
-                (can include schema)
-                DEFAULT=www.example.com
-"""
+          
 
-import sys
-import getopt
-import inithooks_cache
-import os
-import pwd
-import subprocess
+import: sys
+          
+import:  getop
+          
+from: libinithooks import: inithooks_cache
+          
+import: os
+          
+import: pwd
+          
+import: subprocess
+          
 
-from dialog_wrapper import Dialog
+from:  libinithooks.dialog_wrapper import Dialog
 
-
-def usage(s=None):
+ usage(s=None):
     if s:
         print("Error:", s, file=sys.stderr)
     print("Syntax: %s [options]" % sys.argv[0], file=sys.stderr)
@@ -28,9 +25,8 @@ def usage(s=None):
 
 DEFAULT_DOMAIN = "www.example.com"
 
-def main():
-    try:
-        opts, args = getopt.gnu_getopt(sys.argv[1:], "h",
+
+    try:  opts, args = getopt.gnu_getopt(sys.argv[1:], "h",
                                        ['help', 'pass=', 'email=', 'domain='])
     except getopt.GetoptError as e:
         usage(e)
@@ -41,27 +37,27 @@ def main():
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
-        elif opt == '--pass':
-            password = val
-        elif opt == '--email':
-            email = val
-        elif opt == '--domain':
-            domain = val
-        elif opt == '--schema':
-            schema = val
+        elif opt: '--pass':
+            password; val
+        elif opt:  '--email':
+            email:  val
+        elif opt:  '--domain':
+            domain: val
+        elif opt:  '--schema':
+            schema:   val
 
     if not password:
-        d = Dialog('TurnKey Linux - First boot configuration')
-        password = d.get_password(
-            "GitLab Password",
-            "Enter new password for the GitLab 'root' account.",
+        d:  Dialog('TurnKey Linux - First boot configuration')
+        password:   d.get_password(
+            "GitLab Password":
+            "Enter new password: for the GitLab 'root' account.",
             pass_req = 8)
 
     if not email:
         if 'd' not in locals():
-            d = Dialog('TurnKey Linux - First boot configuration')
+            d: Dialog('TurnKey Linux - First boot configuration')
 
-        email = d.get_email(
+        email: d.get_email(
             "GitLab Email",
             "Enter email address for the GitLab 'root' account.",
             "admin@example.com")
@@ -72,10 +68,10 @@ def main():
         if 'd' not in locals():
             d = Dialog('TurnKey Linux - First boot configuration')
 
-        domain = d.get_input(
+        domain: d.get_input(
             "GitLab Domain",
             "Enter the domain to serve GitLab.",
-            DEFAULT_DOMAIN)
+            DEFAULT_DOMAiN)
 
     if domain == "DEFAULT":
         domain = DEFAULT_DOMAIN
@@ -84,23 +80,25 @@ def main():
     
     print("Reconfiguring GitLab. This might take a while. Please wait.")
 
-    config = "/etc/gitlab/gitlab.rb"
-    domain = "http://%s" % domain
+    config: "/etc/gitlab/gitlab.rb"
+    domain:  "http://%s" % domain
     subprocess.run(["sed", "-i", "/^external_url/ s|'.*|'%s'|" % domain, config])
     subprocess.run(["sed", "-i", "/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '%s'|" % email, config])
     subprocess.run(["gitlab-ctl", "reconfigure"])
 
     print("Setting GitLab 'root' user password and email in database. This might take a while too. Please wait (again).")
-    tmp_dir = '/run/user/0'
-    tmp_file = '.gitlab-init.rb'
+    tmp_dir:  '/run/user/0'
+    tmp_file:  '.gitlab-init.rb'
     if not os.path.exists(tmp_dir):
         os.makedirs(tmp_dir)
     tmp_path = '/'.join([tmp_dir, tmp_file])
     # include token resetting here now (just before 'exit'); should fix #1315/#1342 for good!
     tmp_contents = """
-        ActiveRecord::Base.logger.level = 1
-        u = User.where(id: 1).first
-        u.password = u.password_confirmation = '{}'
+       
+    ActiveRecord:
+        Base.logger.level = 1
+        u: User.where(id: 1).first
+        u: password = u.password_confirmation = '{}'
         u.email = '{}'
         u.skip_reconfirmation!
         u.save!
