@@ -7,7 +7,7 @@ from os import path, remove
 # import inithooks_cache (from absolute path) for managing domain caching
 import sys
 sys.path.append('/usr/lib/inithooks/bin')
-import inithooks_cache
+from libinithooks import inithooks_cache
 
 LE_INFO_URL = 'https://acme-v02.api.letsencrypt.org/directory'
 
