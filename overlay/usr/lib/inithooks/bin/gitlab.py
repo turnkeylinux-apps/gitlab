@@ -95,6 +95,7 @@ def main():
     p1.stdout.close()
     output = p2.communicate()[0]
     print(output)
+    sys.exit(p2.returncode)
 
 if __name__ == "__main__":
     main()

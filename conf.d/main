@@ -47,13 +47,24 @@ echo -e "$ADMIN_PASS\n$ADMIN_PASS\n" | gitlab-rake 'gitlab:password:reset[root]'
 gitlab-psql -c "UPDATE users SET password_automatically_set='f' WHERE id = 1;"
 gitlab-psql -c "UPDATE users SET reset_password_token='' WHERE id = 1;"
 
-# fix occasional postgres stop timeout
-while ! gitlab-ctl stop postgresql | grep -q 'ok: down'; do sleep 1; done
-gitlab-ctl stop
-
 # remove initially created files which will be auto-regenerated on new host
 rm -f /opt/gitlab/embedded/nodes/tkldev.json
 rm -f /etc/gitlab/gitlab-secrets.json
+
+# clear secrets (they will be regenerated automatically)
+echo -e 'ApplicationSetting.first.delete\n' | gitlab-rails console -e production
+cat <<EOF | gitlab-rails dbconsole --database main
+UPDATE projects SET runners_token = null, runners_token_encrypted = null;
+UPDATE namespaces SET runners_token = null, runners_token_encrypted = null;
+UPDATE application_settings SET runners_registration_token_encrypted = null;
+UPDATE application_settings SET encrypted_ci_jwt_signing_key = null;
+UPDATE ci_runners SET token = null, token_encrypted = null;
+TRUNCATE integrations, chat_names, issue_tracker_data, jira_tracker_data, slack_integrations, web_hooks, zentao_tracker_data, web_hook_logs, dingtalk_tracker_data, slack_integrations_scopes;
+EOF
+
+# fix occasional postgres stop timeout
+while ! gitlab-ctl stop postgresql | grep -q 'ok: down'; do sleep 1; done
+gitlab-ctl stop
 
 # remove unneeded default TurnKey Confconsole Let's Encrypt integration files
 # GitLab Omnibus provides it's own LE integration - GitLab specific Confconsole
