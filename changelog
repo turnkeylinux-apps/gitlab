@@ -1,3 +1,13 @@
+turnkey-gitlab-17.1 (1) turnkey; urgency=low
+
+  * Updated all Debian packages to latest.
+    [ autopatched by buildtasks ]
+
+  * Patched bugfix release. Closes #1734.
+    [ autopatched by buildtasks ]
+
+ -- Jeremy Davis <jeremy@turnkeylinux.org>  Tue, 28 Mar 2023 03:10:41 +0000
+
 turnkey-gitlab-17.0 (1) turnkey; urgency=low
 
   * Update GitLab to latest upstream stable version - v15.9.3.
