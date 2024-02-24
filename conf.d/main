@@ -51,6 +51,7 @@ rm -f /opt/gitlab/embedded/nodes/tkldev.json
 rm -f /etc/gitlab/gitlab-secrets.json
 
 # clear secrets (they will be regenerated automatically)
+gitlab-ctl start postgresql
 echo -e 'ApplicationSetting.first.delete\n' | gitlab-rails console -e production
 cat <<EOF | gitlab-rails dbconsole --database main
 UPDATE projects SET runners_token = null, runners_token_encrypted = null;
