@@ -1,3 +1,14 @@
+turnkey-gitlab-18.1 (1) turnkey; urgency=low
+
+  * Update GitLab to latest GitLab-CE v17.3.0- via upstream apt repo.
+
+  * Confconsole: Bugfix, improve and update GitLab specific Let's Encrypt
+    plugin - closes #1975.
+
+  * Inithooks: Improve and update GitLab inithook
+
+ -- Jeremy Davis <jeremy@turnkeylinux.org>  Fri, 16 Aug 2024 12:44:58 +0000
+
 turnkey-gitlab-18.0 (1) turnkey; urgency=low
 
   * Install latest GitLab-CE v16.7.7 - from third party GitLab apt repo.
