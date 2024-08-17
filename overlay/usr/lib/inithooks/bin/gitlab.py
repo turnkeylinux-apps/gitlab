@@ -1,22 +1,25 @@
 #!/usr/bin/python3
-"""Set GitLab root (admin) password, email and domain to serve
+"""Set GitLab root user password, email and domain to serve
 
 Option:
     --pass=     unless provided, will ask interactively
     --email=    unless provided, will ask interactively
     --domain=   unless provided, will ask interactively
-                (can include schema)
+                - can include schema
                 DEFAULT=www.example.com
+    --schema=   unless provided will default to 'http'
+                - ignored if domain includes schema
+
 """
 
 import sys
 import getopt
 from libinithooks import inithooks_cache
-import os
-import pwd
 from subprocess import run, Popen, PIPE
 
 from libinithooks.dialog_wrapper import Dialog
+
+DEFAULT_DOMAIN = "www.example.com"
 
 
 def usage(s=None):
@@ -26,7 +29,6 @@ def usage(s=None):
     print(__doc__, file=sys.stderr)
     sys.exit(1)
 
-DEFAULT_DOMAIN = "www.example.com"
 
 def main():
     try:
@@ -35,9 +37,10 @@ def main():
     except getopt.GetoptError as e:
         usage(e)
 
+    password = ""
     email = ""
     domain = ""
-    password = ""
+    schema = ""
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
@@ -55,7 +58,7 @@ def main():
         password = d.get_password(
             "GitLab Password",
             "Enter new password for the GitLab 'root' account.",
-            pass_req = 8)
+            pass_req=8)
 
     if not email:
         if 'd' not in locals():
@@ -81,21 +84,32 @@ def main():
         domain = DEFAULT_DOMAIN
 
     inithooks_cache.write('APP_DOMAIN', domain)
-    
+
     print("Reconfiguring GitLab. This might take a while.")
     config = "/etc/gitlab/gitlab.rb"
-    domain = "http://%s" % domain
-    run(["sed", "-i", "/^external_url/ s|'.*|'%s'|" % domain, config])
-    run(["sed", "-i", "/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '%s'|" % email, config])
+
+    if not domain.startswith('http'):
+        if schema:
+            if not schema.endswith("://"):
+                schema = f"{schema}://"
+            domain = f"{schema}{domain}"
+        else:
+            domain = f"http://{domain}"
+    run(["sed", "-i", f"/^external_url/ s|'.*|'{domain}'|", config])
+    run(["sed", "-i",
+         fr"/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '{email}'|",
+         config])
     run(["gitlab-ctl", "reconfigure"])
 
     print("Setting GitLab 'root' user password. This might take a while.")
-    p1 = Popen(["echo", "-e", "{}\n{}\n".format(password, password)], stdout=PIPE)
-    p2 = Popen(["gitlab-rake", "gitlab:password:reset[root]"], stdin=p1.stdout, stdout=PIPE)
+    p1 = Popen(["echo", "-e", f"{password}\n{password}\n"], stdout=PIPE)
+    p2 = Popen(["gitlab-rake", "gitlab:password:reset[root]"],
+               stdin=p1.stdout, stdout=PIPE)
     p1.stdout.close()
     output = p2.communicate()[0]
     print(output)
     sys.exit(p2.returncode)
+
 
 if __name__ == "__main__":
     main()
