@@ -32,8 +32,10 @@ def usage(s=None):
 
 def main():
     try:
-        opts, args = getopt.gnu_getopt(sys.argv[1:], "h",
-                                       ['help', 'pass=', 'email=', 'domain='])
+        opts, args = getopt.gnu_getopt(
+                sys.argv[1:], "h",
+                ['help', 'pass=', 'email=', 'domain=', 'schema=']
+                )
     except getopt.GetoptError as e:
         usage(e)
 
