@@ -3,18 +3,18 @@
 
 . /etc/default/inithooks
 
-exit_status=0
+fatal() { echo "$(basename "$0"): FATAL: $*" >&2; exit 1; }
 
 # if GitLab isn't already running, start it
-if ! $(systemctl is-active --quiet gitlab-runsvdir.service); then
+if ! systemctl is-active --quiet gitlab-runsvdir.service; then
     systemctl start gitlab-runsvdir.service
 fi
 
-[ -e $INITHOOKS_CONF ] && . $INITHOOKS_CONF
-$INITHOOKS_PATH/bin/gitlab.py --pass="$APP_PASS" --email="$APP_EMAIL" --domain="$APP_DOMAIN" \
-    || exit_status=1 # ensure that temp service is disabled even if gitlab inithook fails
+if [[ -f "$INITHOOKS_CONF" ]]; then
+    source "$INITHOOKS_CONF"
+else
+    echo "$(basename "$0"): Warning: $INITHOOKS_CONF not found or is not a file (expected if not preseeded" >&2
+fi
 
-# moved token reset to $INITHOOKS_PATH/bin/gitlab.py - at the same time as
-# setting password - should fix #1315/#1342 for good!
-
-exit $exit_status
+"$INITHOOKS_PATH/bin/gitlab.py" --pass="$APP_PASS" --email="$APP_EMAIL" --domain="$APP_DOMAIN" \
+    || fatal "$INITHOOKS_PATH/bin/gitlab.py failed"
