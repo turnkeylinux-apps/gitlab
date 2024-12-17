@@ -108,8 +108,12 @@ def main():
     p2 = Popen(["gitlab-rake", "gitlab:password:reset[root]"],
                stdin=p1.stdout, stdout=PIPE)
     p1.stdout.close()
+    if p2.returncode == 0:
+        stream = sys.stdout
+    else:
+        stream = sys.stderr
     output = p2.communicate()[0]
-    print(output)
+    print(output.decode(), file=stream)
     sys.exit(p2.returncode)
 
 
