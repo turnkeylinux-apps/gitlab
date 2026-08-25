@@ -6,14 +6,34 @@ ADMIN_PASS=Turnkey1
 APP_NAME="TurnKey GitLab"
 DISPLAY_NAME="$APP_NAME Admin"
 CONF=/etc/gitlab/gitlab.rb
+GITLAB_VERSION=19.3.0-ce.0
+GITLAB_PACKAGE_SHA256=f88f80cd61d6b2beb35aa7207591d4abdfed0e6c2c42e6ed753dd29ea5de076d
+GITLAB_KEY_SHA256=003c0ca2fea61767f8c6de7a1c0f49fc88ea3c8db95e3cd1856b32ce9d876e0f
+GITLAB_KEY_FINGERPRINT=F6403F6544A38863DAA0B6E03F01618A51312F3F
+SOURCE_RECORD=/usr/local/share/turnkey-gitlab/source
 
 [ "$FAB_HTTP_PROXY" ] && export http_proxy=$FAB_HTTP_PROXY
 
 APT_KEY_URL=https://packages.gitlab.com/gpg.key
-curl -sS $APT_KEY_URL | apt-key --keyring /usr/share/keyrings/gitlab-ce.gpg add -
+key=$(mktemp)
+trap 'find "$key" -maxdepth 0 -type f -delete' EXIT
+curl -fsSL "$APT_KEY_URL" -o "$key"
+echo "$GITLAB_KEY_SHA256  $key" | sha256sum -c -
+test "$(gpg --show-keys --with-colons "$key" | awk -F: '$1 == "fpr" { print $10; exit }')" = "$GITLAB_KEY_FINGERPRINT"
+gpg --batch --yes --dearmor --output /usr/share/keyrings/gitlab-ce.gpg "$key"
 
 apt-get update
-apt-get install gitlab-ce -y
+EXTERNAL_URL="http://$DOMAIN" apt-get install -y "gitlab-ce=$GITLAB_VERSION"
+test "$(dpkg-query -W -f='${Version}' gitlab-ce)" = "$GITLAB_VERSION"
+
+mkdir -p "$(dirname "$SOURCE_RECORD")"
+cat >"$SOURCE_RECORD" <<EOF
+package_source=https://packages.gitlab.com/gitlab/gitlab-ce/debian/trixie
+installed_version=$GITLAB_VERSION
+package_sha256=$GITLAB_PACKAGE_SHA256
+repository_key_fingerprint=$GITLAB_KEY_FINGERPRINT
+repository_key_sha256=$GITLAB_KEY_SHA256
+EOF
 
 # tweak GitLab defaults for build within TKLDev
 sed -i "/^external_url/ s|'.*|'http://$DOMAIN'|" $CONF
@@ -42,13 +62,20 @@ gitlab-ctl reconfigure
 
 # disable GitLab WebUI prompting to set 'root' GitLab user password (TurnKey
 # sets GitLab 'root' user password via inithook)
-echo -e "$ADMIN_PASS\n$ADMIN_PASS\n" | gitlab-rake 'gitlab:password:reset[root]'
+set +x
+printf '%s\n%s\n' "$ADMIN_PASS" "$ADMIN_PASS" | gitlab-rake 'gitlab:password:reset[root]'
+set -x
 gitlab-psql -c "UPDATE users SET password_automatically_set='f' WHERE id = 1;"
 gitlab-psql -c "UPDATE users SET reset_password_token='' WHERE id = 1;"
 
 # remove initially created files which will be auto-regenerated on new host
-rm -f /opt/gitlab/embedded/nodes/tkldev.json
-rm -f /etc/gitlab/gitlab-secrets.json
+for generated in \
+    /opt/gitlab/embedded/nodes/tkldev.json \
+    /etc/gitlab/gitlab-secrets.json; do
+    if [[ -f $generated ]]; then
+        find "$generated" -maxdepth 0 -type f -delete
+    fi
+done
 
 # clear secrets (they will be regenerated automatically)
 gitlab-ctl start postgresql
@@ -70,10 +97,9 @@ gitlab-ctl stop
 # GitLab Omnibus provides it's own LE integration - GitLab specific Confconsole
 # files provided via overlay
 LE_DIR=/usr/lib/confconsole/plugins.d/Lets_Encrypt
-FILES="add-water cert_auto_renew.py dehydrated-wrapper *.pyc"
-for file in $FILES; do
-    rm -rf $LE_DIR/$file
-done
+find "$LE_DIR" -maxdepth 1 -type f \
+    \( -name add-water -o -name cert_auto_renew.py \
+       -o -name dehydrated-wrapper -o -name '*.pyc' \) -delete
 # GitLab Omnibus includes it's own ACME client
 apt-get purge -y dehydrated
 

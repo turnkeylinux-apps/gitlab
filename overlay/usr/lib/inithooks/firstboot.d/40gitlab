@@ -16,5 +16,6 @@ else
     echo "$(basename "$0"): Warning: $INITHOOKS_CONF not found or is not a file (expected if not preseeded" >&2
 fi
 
-"$INITHOOKS_PATH/bin/gitlab.py" --pass="$APP_PASS" --email="$APP_EMAIL" --domain="$APP_DOMAIN" \
+APP_PASS="$APP_PASS" "$INITHOOKS_PATH/bin/gitlab.py" \
+    --email="$APP_EMAIL" --domain="$APP_DOMAIN" \
     || fatal "$INITHOOKS_PATH/bin/gitlab.py failed"

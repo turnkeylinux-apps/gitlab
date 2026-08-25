@@ -1,3 +1,20 @@
+turnkey-gitlab-19.0 (1) turnkey; urgency=low
+
+  * Install GitLab CE 19.3.0 from its official Debian 13 repository with a
+    pinned version, repository key fingerprint, and signed package metadata.
+
+  * Add a non-mutating update check and document GitLab's supervised required
+    upgrade stops.
+
+  * Verify firstboot failures and keep the root password out of child process
+    arguments.
+
+  * Add v19 application acceptance coverage and README evidence crosswalk.
+
+  * Upgrade the base distribution to Debian 13 Trixie.
+
+ -- TurnKey Linux release engineering <release-engineering@turnkeylinux.org>  Tue, 25 Aug 2026 00:00:00 +0000
+
 turnkey-gitlab-18.1 (1) turnkey; urgency=low
 
   * Update GitLab to latest GitLab-CE v17.3.0- via upstream apt repo.
@@ -337,4 +354,3 @@ turnkey-gitlab-12.0 (1) turnkey; urgency=low
     appliances. Here we only describe changes specific to this appliance.
 
  -- Alon Swartz <alon@turnkeylinux.org>  Wed, 01 Aug 2012 08:00:00 +0200
-

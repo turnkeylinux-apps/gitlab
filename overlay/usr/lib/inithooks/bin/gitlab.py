@@ -12,10 +12,11 @@ Option:
 
 """
 
-import sys
 import getopt
+import os
+import sys
 from libinithooks import inithooks_cache
-from subprocess import run, Popen, PIPE
+from subprocess import run
 
 from libinithooks.dialog_wrapper import Dialog
 
@@ -39,7 +40,7 @@ def main():
     except getopt.GetoptError as e:
         usage(e)
 
-    password = ""
+    password = os.environ.get("APP_PASS", "")
     email = ""
     domain = ""
     schema = ""
@@ -97,24 +98,25 @@ def main():
             domain = f"{schema}{domain}"
         else:
             domain = f"http://{domain}"
-    run(["sed", "-i", f"/^external_url/ s|'.*|'{domain}'|", config])
+    run(["sed", "-i", f"/^external_url/ s|'.*|'{domain}'|", config],
+        check=True)
     run(["sed", "-i",
          fr"/^gitlab_rails\['gitlab_email_from'\]/ s|=.*|= '{email}'|",
-         config])
-    run(["gitlab-ctl", "reconfigure"])
+         config], check=True)
+    run(["gitlab-ctl", "reconfigure"], check=True)
 
     print("Setting GitLab 'root' user password. This might take a while.")
-    p1 = Popen(["echo", "-e", f"{password}\n{password}\n"], stdout=PIPE)
-    p2 = Popen(["gitlab-rake", "gitlab:password:reset[root]"],
-               stdin=p1.stdout, stdout=PIPE)
-    p1.stdout.close()
-    if p2.returncode == 0:
-        stream = sys.stdout
-    else:
-        stream = sys.stderr
-    output = p2.communicate()[0]
-    print(output.decode(), file=stream)
-    sys.exit(p2.returncode)
+    reset = run(
+        ["gitlab-rake", "gitlab:password:reset[root]"],
+        input=f"{password}\n{password}\n",
+        text=True,
+        capture_output=True,
+    )
+    if reset.stdout:
+        print(reset.stdout, end="")
+    if reset.stderr:
+        print(reset.stderr, file=sys.stderr, end="")
+    sys.exit(reset.returncode)
 
 
 if __name__ == "__main__":
