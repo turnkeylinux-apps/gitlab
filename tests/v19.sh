@@ -92,9 +92,10 @@ done
 
 # Preserve memory for the identity flow on the constrained Docker runner.
 # The checks above first prove normal init and required Sidekiq health. Stop
-# background and observability workers only in this disposable container.
+# optional background and observability workers only in this disposable
+# container. Keep Sidekiq available until the temporary SSH key is propagated.
 for component in alertmanager gitlab-exporter gitlab-kas node-exporter \
-        postgres-exporter prometheus redis-exporter sidekiq; do
+        postgres-exporter prometheus redis-exporter; do
     gitlab-ctl stop "$component" >/dev/null
 done
 puma_config=/var/opt/gitlab/gitlab-rails/etc/puma.rb
@@ -163,6 +164,7 @@ git -C "$work/repository" remote add origin \
 git -C "$work/repository" push -q -u origin HEAD:main
 git clone -q "git@127.0.0.1:root/$fixture.git" "$work/readback"
 grep -Fxq 'GitLab v19 project round trip' "$work/readback/README.md"
+gitlab-ctl stop sidekiq >/dev/null
 
 "${curl_local[@]}" --fail --header "PRIVATE-TOKEN: $token" \
     "$base/root/$fixture/-/raw/main/README.md" |
