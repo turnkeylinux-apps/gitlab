@@ -25,6 +25,18 @@ else
 fi
 curl_local=(curl --insecure --silent --show-error --resolve "$host:$port:127.0.0.1")
 
+json_field() {
+    python3 -c '
+import json
+import sys
+
+value = json.load(sys.stdin)[sys.argv[1]]
+if value is None or value is False:
+    raise SystemExit(1)
+print(value)
+' "$1"
+}
+
 cleanup() {
     set +e
     if [[ -n $key_id ]]; then
@@ -79,7 +91,7 @@ test -n "$csrf"
     --data-urlencode 'user[remember_me]=0' \
     "$base/users/sign_in" >"$page"
 "${curl_local[@]}" --fail --cookie "$cookie" \
-    "$base/api/v4/user" | jq -e '.username == "root"' >/dev/null
+    "$base/api/v4/user" | json_field username | grep -Fxq root
 
 gitlab-rails runner \
     "item = User.find_by_username('root').personal_access_tokens.create!(scopes: ['api'], name: '$fixture', expires_at: 1.day.from_now); item.set_token('$token'); item.save!"
@@ -90,8 +102,8 @@ project=$("${curl_local[@]}" --fail --request POST \
     --data-urlencode "path=$fixture" \
     --data 'visibility=private' \
     "$base/api/v4/projects")
-project_id=$(jq -er '.id' <<<"$project")
-test "$(jq -r '.path' <<<"$project")" = "$fixture"
+project_id=$(json_field id <<<"$project")
+test "$(json_field path <<<"$project")" = "$fixture"
 
 ssh-keygen -q -t ed25519 -N '' -f "$work/id"
 key=$("${curl_local[@]}" --fail --request POST \
@@ -99,7 +111,7 @@ key=$("${curl_local[@]}" --fail --request POST \
     --data-urlencode "title=$fixture" \
     --data-urlencode "key=$(<"$work/id.pub")" \
     "$base/api/v4/user/keys")
-key_id=$(jq -er '.id' <<<"$key")
+key_id=$(json_field id <<<"$key")
 ssh-keyscan -T 10 127.0.0.1 >"$work/known_hosts" 2>/dev/null
 export GIT_SSH_COMMAND="ssh -i $work/id -o IdentitiesOnly=yes -o UserKnownHostsFile=$work/known_hosts"
 
