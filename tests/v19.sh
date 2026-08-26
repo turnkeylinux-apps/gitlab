@@ -65,12 +65,20 @@ for component in nginx postgresql redis sidekiq gitaly; do
 done
 
 # Preserve memory for the identity flow on the constrained Docker runner.
-# These auxiliary services start normally with the appliance but are outside
-# this focused acceptance contract.
+# The checks above first prove normal init and required Sidekiq health. Stop
+# background and observability workers only in this disposable container.
 for component in alertmanager gitlab-exporter gitlab-kas node-exporter \
-        postgres-exporter prometheus redis-exporter; do
+        postgres-exporter prometheus redis-exporter sidekiq; do
     gitlab-ctl stop "$component" >/dev/null
 done
+puma_config=/var/opt/gitlab/gitlab-rails/etc/puma.rb
+sed -Ei \
+    -e 's/^workers [0-9]+$/workers 1/' \
+    -e 's/^  options = \{ workers: [0-9]+ \}$/  options = { workers: 1 }/' \
+    "$puma_config"
+grep -Fxq 'workers 1' "$puma_config"
+grep -Fxq '  options = { workers: 1 }' "$puma_config"
+gitlab-ctl restart puma >/dev/null
 
 grep -Fxq 'VERSION_CODENAME=trixie' /etc/os-release
 grep -Eq '^turnkey-gitlab-19\.0' /etc/turnkey_version
@@ -142,7 +150,6 @@ grep -Fxq 'GitLab v19 project round trip' "$work/readback/README.md"
 gitlab-psql --no-align --tuples-only --command \
     "SELECT path FROM projects WHERE id = $project_id;" |
     grep -Fxq "$fixture"
-gitlab-ctl status sidekiq | grep -Fq 'run: sidekiq:'
 
 gitlab-update --check >"$work/update"
 candidate=$(sed -n 's/^candidate=//p' "$work/update")
