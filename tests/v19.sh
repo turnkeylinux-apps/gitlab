@@ -12,6 +12,7 @@ cookie=$work/cookie
 page=$work/page
 project_id=
 key_id=
+ruby=
 phase=initialization
 
 mark_phase() {
@@ -98,6 +99,9 @@ cleanup() {
     gitlab-rails runner \
         "item = PersonalAccessToken.find_by_token('$token'); item.revoke! if item" \
         >/dev/null 2>&1
+    if [[ $ruby == /tmp/gitlab-v19-background-job.*.rb ]]; then
+        rm -f -- "$ruby"
+    fi
     find "$work" -depth -delete
 }
 trap cleanup EXIT
@@ -200,7 +204,7 @@ gitlab-psql --no-align --tuples-only --command \
 mark_phase background-jobs
 gitlab-ctl status sidekiq | grep -Fq 'run: sidekiq:' ||
     fail 'Sidekiq is not running before the job round trip'
-ruby=$work/background-job.rb
+ruby=$(mktemp /tmp/gitlab-v19-background-job.XXXXXXXX.rb)
 cat >"$ruby" <<'RUBY'
 require 'sidekiq/api'
 project_id = Integer(ENV.fetch('TKL_PROJECT_ID'), 10)
@@ -224,6 +228,8 @@ loop do
   sleep 1
 end
 RUBY
+chgrp git "$ruby"
+chmod 0640 "$ruby"
 TKL_PROJECT_ID=$project_id gitlab-rails runner "$ruby"
 
 mark_phase package-update-channel
