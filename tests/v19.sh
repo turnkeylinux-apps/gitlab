@@ -12,6 +12,29 @@ cookie=$work/cookie
 page=$work/page
 project_id=
 key_id=
+phase=initialization
+
+mark_phase() {
+    phase=$1
+    printf 'phase=%s\n' "$phase"
+}
+
+fail() {
+    printf 'error phase=%s message=%s\n' "$phase" "$1" >&2
+    exit 1
+}
+
+report_error() {
+    local status=$1
+    local line=$2
+
+    trap - ERR
+    printf 'error phase=%s status=%s line=%s\n' \
+        "$phase" "$status" "$line" >&2
+    exit "$status"
+}
+
+trap 'report_error "$?" "$LINENO"' ERR
 
 base=$(sed -n "s/^external_url '\([^']*\)'.*/\1/p" /etc/gitlab/gitlab.rb)
 scheme=${base%%://*}
@@ -61,6 +84,7 @@ sys.stdout.write(str(value))
 
 cleanup() {
     set +e
+    trap - ERR
     if [[ -n $key_id ]]; then
         "${curl_local[@]}" --request DELETE \
             --header "PRIVATE-TOKEN: $token" \
@@ -78,15 +102,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
+mark_phase appliance-contract
 for unit in gitlab-runsvdir.service postfix.service; do
     systemctl --quiet is-active "$unit"
     systemctl --quiet is-enabled "$unit"
 done
 for component in nginx postgresql redis sidekiq gitaly; do
-    gitlab-ctl status "$component" | grep -Fq "run: $component:"
+    gitlab-ctl status "$component" | grep -Fq "run: $component:" ||
+        fail "GitLab component is not running: $component"
 done
-grep -Fxq 'VERSION_CODENAME=trixie' /etc/os-release
-grep -Eq '^turnkey-gitlab-19\.0' /etc/turnkey_version
+grep -Fxq 'VERSION_CODENAME=trixie' /etc/os-release ||
+    fail 'operating system is not Debian Trixie'
+grep -Eq '^turnkey-gitlab-19\.0' /etc/turnkey_version ||
+    fail 'appliance version is not GitLab 19.0'
 test -d /usr/share/webmin/postfix
 test -f /usr/lib/confconsole/plugins.d/Lets_Encrypt/get_certificate.py
 
@@ -102,7 +130,9 @@ test "$(gpg --show-keys --with-colons /usr/share/keyrings/gitlab-ce.gpg |
     awk -F: '$1 == "fpr" { print $10; exit }')" = \
     "$repository_key_fingerprint"
 
+mark_phase readiness
 wait_gitlab_ready
+mark_phase web-login
 "${curl_local[@]}" --fail --cookie-jar "$cookie" \
     "$base/users/sign_in" >"$page"
 csrf=$(sed -n 's/.*name="authenticity_token" value="\([^"]*\)".*/\1/p' \
@@ -118,6 +148,7 @@ test -n "$csrf"
 test "$("${curl_local[@]}" --fail --cookie "$cookie" \
     "$base/api/v4/user" | json_value string username)" = root
 
+mark_phase project-api
 gitlab-rails runner \
     "item = User.find_by_username('root').personal_access_tokens.create!(scopes: ['api'], name: '$fixture', expires_at: 1.day.from_now); item.set_token('$token'); item.save!"
 
@@ -140,6 +171,7 @@ key_id=$(json_value integer id <<<"$key")
 ssh-keyscan -T 10 127.0.0.1 >"$work/known_hosts" 2>/dev/null
 export GIT_SSH_COMMAND="ssh -i $work/id -o IdentitiesOnly=yes -o UserKnownHostsFile=$work/known_hosts"
 
+mark_phase ssh-git-round-trip
 git -C "$work" init -q repository
 git -C "$work/repository" config user.name 'TurnKey acceptance'
 git -C "$work/repository" config user.email 'acceptance@example.invalid'
@@ -150,15 +182,24 @@ git -C "$work/repository" remote add origin \
     "git@127.0.0.1:root/$fixture.git"
 git -C "$work/repository" push -q -u origin HEAD:main
 git clone -q "git@127.0.0.1:root/$fixture.git" "$work/readback"
-grep -Fxq 'GitLab v19 project round trip' "$work/readback/README.md"
+grep -Fxq 'GitLab v19 project round trip' "$work/readback/README.md" ||
+    fail 'cloned repository does not contain the pushed marker'
 
-"${curl_local[@]}" --fail --header "PRIVATE-TOKEN: $token" \
+mark_phase authenticated-web-read
+"${curl_local[@]}" --fail --location --cookie "$cookie" \
     "$base/root/$fixture/-/raw/main/README.md" |
-    grep -Fxq 'GitLab v19 project round trip'
+    grep -Fxq 'GitLab v19 project round trip' ||
+    fail 'authenticated web raw read does not contain the pushed marker'
+
+mark_phase database-readback
 gitlab-psql --no-align --tuples-only --command \
     "SELECT path FROM projects WHERE id = $project_id;" |
-    grep -Fxq "$fixture"
-gitlab-ctl status sidekiq | grep -Fq 'run: sidekiq:'
+    grep -Fxq "$fixture" ||
+    fail 'PostgreSQL project readback does not match the fixture'
+
+mark_phase background-jobs
+gitlab-ctl status sidekiq | grep -Fq 'run: sidekiq:' ||
+    fail 'Sidekiq is not running before the job round trip'
 ruby=$work/background-job.rb
 cat >"$ruby" <<'RUBY'
 require 'sidekiq/api'
@@ -185,13 +226,17 @@ end
 RUBY
 TKL_PROJECT_ID=$project_id gitlab-rails runner "$ruby"
 
+mark_phase package-update-channel
 gitlab-update --check >"$work/update"
 candidate=$(sed -n 's/^candidate=//p' "$work/update")
 status=$(sed -n 's/^status=//p' "$work/update")
 test -n "$candidate"
-grep -Fxq 'channel=official-gitlab-ce-debian-trixie' "$work/update"
-grep -Fxq "integrity=APT-signed-by-$repository_key_fingerprint" "$work/update"
+grep -Fxq 'channel=official-gitlab-ce-debian-trixie' "$work/update" ||
+    fail 'updater did not report the official GitLab CE Debian Trixie channel'
+grep -Fxq "integrity=APT-signed-by-$repository_key_fingerprint" "$work/update" ||
+    fail 'updater did not report the pinned repository key fingerprint'
 
+mark_phase result
 cat >"$result" <<EOF
 package_source=Official GitLab CE Debian Trixie repository
 installed_version=$installed_version
@@ -201,3 +246,4 @@ updater_result=$status; candidate=$candidate
 updater_channel=official GitLab CE Debian Trixie, supervised required-stop upgrades
 integrity_evidence=repository key $repository_key_fingerprint; package SHA-256 $package_sha256
 EOF
+mark_phase complete
