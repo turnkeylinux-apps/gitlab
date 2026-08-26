@@ -58,6 +58,9 @@ test -f /usr/lib/confconsole/plugins.d/Lets_Encrypt/get_certificate.py
 
 # shellcheck disable=SC1090
 . "$source_file"
+: "${installed_version:?installed_version is missing from $source_file}"
+: "${package_sha256:?package_sha256 is missing from $source_file}"
+: "${repository_key_fingerprint:?repository_key_fingerprint is missing from $source_file}"
 test "$(dpkg-query -W -f='${Version}' gitlab-ce)" = "$installed_version"
 test "$installed_version" = 19.3.0-ce.0
 test "$package_sha256" = f88f80cd61d6b2beb35aa7207591d4abdfed0e6c2c42e6ed753dd29ea5de076d
@@ -121,6 +124,31 @@ gitlab-psql --no-align --tuples-only --command \
     "SELECT path FROM projects WHERE id = $project_id;" |
     grep -Fxq "$fixture"
 gitlab-ctl status sidekiq | grep -Fq 'run: sidekiq:'
+ruby=$work/background-job.rb
+cat >"$ruby" <<'RUBY'
+require 'sidekiq/api'
+project_id = Integer(ENV.fetch('TKL_PROJECT_ID'), 10)
+statistics = ['repository_size']
+lease_key = ['project_cache_worker', project_id, *statistics].join(':')
+jid = ProjectCacheWorker.perform_async(project_id, [], statistics)
+deadline = 90.seconds.from_now
+loop do
+  followup = Sidekiq::ScheduledSet.new.find do |job|
+    job.klass == 'UpdateProjectStatisticsWorker' &&
+      job.args[0] == lease_key && job.args[1] == project_id
+  end
+  if followup
+    followup.delete
+    puts "Sidekiq project cache round trip: #{jid}"
+    break
+  end
+  retry_job = Sidekiq::RetrySet.new.find_job(jid)
+  raise "ProjectCacheWorker entered retry: #{retry_job.error_message}" if retry_job
+  raise 'ProjectCacheWorker timed out' if Time.current >= deadline
+  sleep 1
+end
+RUBY
+TKL_PROJECT_ID=$project_id gitlab-rails runner "$ruby"
 
 gitlab-update --check >"$work/update"
 candidate=$(sed -n 's/^candidate=//p' "$work/update")
@@ -132,7 +160,7 @@ grep -Fxq "integrity=APT-signed-by-$repository_key_fingerprint" "$work/update"
 cat >"$result" <<EOF
 package_source=Official GitLab CE Debian Trixie repository
 installed_version=$installed_version
-runtime_checks=normal init; root web login; project API create and web read; SSH Git push and clone; PostgreSQL readback; Sidekiq; Postfix
+runtime_checks=normal init; root web login; project API create and web read; SSH Git push and clone; PostgreSQL readback; Sidekiq project cache job; Postfix
 updater_command=gitlab-update --check
 updater_result=$status; candidate=$candidate
 updater_channel=official GitLab CE Debian Trixie, supervised required-stop upgrades

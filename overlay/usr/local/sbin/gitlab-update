@@ -11,6 +11,8 @@ keyring=/usr/share/keyrings/gitlab-ce.gpg
 
 # shellcheck disable=SC1090
 . "$source_record"
+: "${installed_version:?installed_version is missing from $source_record}"
+: "${repository_key_fingerprint:?repository_key_fingerprint is missing from $source_record}"
 
 installed=$(dpkg-query -W -f='${Version}' gitlab-ce)
 candidate=$(apt-cache policy gitlab-ce |
