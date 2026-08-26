@@ -25,6 +25,18 @@ else
 fi
 curl_local=(curl --insecure --silent --show-error --resolve "$host:$port:127.0.0.1")
 
+wait_gitlab_ready() {
+    for _ in {1..60}; do
+        if "${curl_local[@]}" --fail --connect-timeout 1 --max-time 3 \
+                --output /dev/null "$base/-/readiness?all=1" 2>/dev/null; then
+            return 0
+        fi
+        sleep 2
+    done
+    "${curl_local[@]}" --fail --connect-timeout 1 --max-time 3 \
+        --output /dev/null "$base/-/readiness?all=1"
+}
+
 cleanup() {
     set +e
     if [[ -n $key_id ]]; then
@@ -68,6 +80,7 @@ test "$(gpg --show-keys --with-colons /usr/share/keyrings/gitlab-ce.gpg |
     awk -F: '$1 == "fpr" { print $10; exit }')" = \
     "$repository_key_fingerprint"
 
+wait_gitlab_ready
 "${curl_local[@]}" --fail --cookie-jar "$cookie" \
     "$base/users/sign_in" >"$page"
 csrf=$(sed -n 's/.*name="authenticity_token" value="\([^"]*\)".*/\1/p' \
