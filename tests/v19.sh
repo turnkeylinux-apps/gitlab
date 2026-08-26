@@ -37,6 +37,32 @@ print(value)
 ' "$1"
 }
 
+authenticate_root() {
+    local csrf state user
+
+    for state in "$cookie" "$page"; do
+        if [[ -e $state ]]; then
+            find "$state" -maxdepth 0 -type f -delete
+        fi
+    done
+    "${curl_local[@]}" --fail --cookie-jar "$cookie" \
+        "$base/users/sign_in" >"$page" || return
+    csrf=$(sed -n \
+        's/.*name="authenticity_token" value="\([^"]*\)".*/\1/p' \
+        "$page")
+    [[ -n $csrf ]] || return
+    "${curl_local[@]}" --fail --location --cookie "$cookie" \
+        --cookie-jar "$cookie" \
+        --data-urlencode "authenticity_token=$csrf" \
+        --data-urlencode 'user[login]=root' \
+        --data-urlencode "user[password]=$app_password" \
+        --data-urlencode 'user[remember_me]=0' \
+        "$base/users/sign_in" >"$page" || return
+    user=$("${curl_local[@]}" --fail --cookie "$cookie" \
+        "$base/api/v4/user") || return
+    [[ $(json_field username <<<"$user") == root ]]
+}
+
 cleanup() {
     set +e
     if [[ -n $key_id ]]; then
@@ -94,21 +120,15 @@ test "$(gpg --show-keys --with-colons /usr/share/keyrings/gitlab-ce.gpg |
     awk -F: '$1 == "fpr" { print $10; exit }')" = \
     "$repository_key_fingerprint"
 
-"${curl_local[@]}" --fail --retry 30 --retry-delay 2 \
-    --retry-all-errors --cookie-jar "$cookie" \
-    "$base/users/sign_in" >"$page"
-csrf=$(sed -n 's/.*name="authenticity_token" value="\([^"]*\)".*/\1/p' \
-    "$page")
-test -n "$csrf"
-"${curl_local[@]}" --fail --location --cookie "$cookie" \
-    --cookie-jar "$cookie" \
-    --data-urlencode "authenticity_token=$csrf" \
-    --data-urlencode 'user[login]=root' \
-    --data-urlencode "user[password]=$app_password" \
-    --data-urlencode 'user[remember_me]=0' \
-    "$base/users/sign_in" >"$page"
-"${curl_local[@]}" --fail --cookie "$cookie" \
-    "$base/api/v4/user" | json_field username | grep -Fxq root
+authenticated=false
+for _ in {1..30}; do
+    if authenticate_root; then
+        authenticated=true
+        break
+    fi
+    sleep 2
+done
+$authenticated
 
 gitlab-rails runner \
     "item = User.find_by_username('root').personal_access_tokens.create!(scopes: ['api'], name: '$fixture', expires_at: 1.day.from_now); item.set_token('$token'); item.save!"
