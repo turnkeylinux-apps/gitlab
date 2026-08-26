@@ -165,7 +165,7 @@ git -C "$work/repository" push -q -u origin HEAD:main
 git clone -q "git@127.0.0.1:root/$fixture.git" "$work/readback"
 grep -Fxq 'GitLab v19 project round trip' "$work/readback/README.md"
 
-"${curl_local[@]}" --fail --header "PRIVATE-TOKEN: $token" \
+"${curl_local[@]}" --fail --location --cookie "$cookie" \
     "$base/root/$fixture/-/raw/main/README.md" |
     grep -Fxq 'GitLab v19 project round trip'
 gitlab-psql --no-align --tuples-only --command \
