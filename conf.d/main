@@ -112,18 +112,28 @@ done
 # clear secrets (they will be regenerated automatically)
 gitlab-ctl start postgresql
 echo -e 'ApplicationSetting.first.delete\n' | gitlab-rails console -e production
-cat <<EOF | gitlab-psql
+cat <<EOF | gitlab-psql --set=ON_ERROR_STOP=on
 UPDATE projects SET runners_token = null, runners_token_encrypted = null;
 UPDATE namespaces SET runners_token = null, runners_token_encrypted = null;
 UPDATE application_settings SET runners_registration_token_encrypted = null;
 UPDATE application_settings SET encrypted_ci_jwt_signing_key = null;
-UPDATE ci_runners SET token = null, token_encrypted = null;
-TRUNCATE integrations, chat_names, issue_tracker_data, jira_tracker_data, slack_integrations, web_hooks, zentao_tracker_data, web_hook_logs, dingtalk_tracker_data, slack_integrations_scopes;
+UPDATE ci_runners SET token_encrypted = null;
+TRUNCATE integrations, chat_names, issue_tracker_data, jira_tracker_data, slack_integrations, web_hooks, zentao_tracker_data, dingtalk_tracker_data, slack_integrations_scopes;
 EOF
 
-# fix occasional postgres stop timeout
-while ! gitlab-ctl stop postgresql | grep -q 'ok: down'; do sleep 1; done
-gitlab-ctl stop
+# GitLab services occasionally need a second stop wait while shutting down in
+# the build chroot. Keep retries bounded and preserve a terminal failure.
+stop_gitlab() {
+    for _ in 1 2 3; do
+        if gitlab-ctl stop "$@"; then
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
+}
+stop_gitlab postgresql
+stop_gitlab
 kill "$runsvdir_pid"
 wait "$runsvdir_pid" || true
 runsvdir_pid=
