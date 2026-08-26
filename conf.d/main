@@ -23,7 +23,10 @@ test "$(gpg --show-keys --with-colons "$key" | awk -F: '$1 == "fpr" { print $10;
 gpg --batch --yes --dearmor --output /usr/share/keyrings/gitlab-ce.gpg "$key"
 
 apt-get update
+mkdir -p /etc/gitlab
+touch /etc/gitlab/skip-auto-reconfigure
 EXTERNAL_URL="http://$DOMAIN" apt-get install -y "gitlab-ce=$GITLAB_VERSION"
+find /etc/gitlab/skip-auto-reconfigure -maxdepth 0 -type f -delete
 test "$(dpkg-query -W -f='${Version}' gitlab-ce)" = "$GITLAB_VERSION"
 
 mkdir -p "$(dirname "$SOURCE_RECORD")"
