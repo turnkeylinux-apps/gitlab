@@ -37,6 +37,28 @@ wait_gitlab_ready() {
         --output /dev/null "$base/-/readiness?all=1"
 }
 
+json_value() {
+    local expected_type=$1
+    local key=$2
+
+    python3 -c '
+import json
+import sys
+
+expected_type, key = sys.argv[1:]
+value = json.load(sys.stdin)[key]
+if expected_type == "string":
+    valid = isinstance(value, str)
+elif expected_type == "integer":
+    valid = isinstance(value, int) and not isinstance(value, bool)
+else:
+    raise SystemExit(2)
+if not valid:
+    raise SystemExit(1)
+sys.stdout.write(str(value))
+' "$expected_type" "$key"
+}
+
 cleanup() {
     set +e
     if [[ -n $key_id ]]; then
@@ -93,8 +115,8 @@ test -n "$csrf"
     --data-urlencode "user[password]=$app_password" \
     --data-urlencode 'user[remember_me]=0' \
     "$base/users/sign_in" >"$page"
-"${curl_local[@]}" --fail --cookie "$cookie" \
-    "$base/api/v4/user" | jq -e '.username == "root"' >/dev/null
+test "$("${curl_local[@]}" --fail --cookie "$cookie" \
+    "$base/api/v4/user" | json_value string username)" = root
 
 gitlab-rails runner \
     "item = User.find_by_username('root').personal_access_tokens.create!(scopes: ['api'], name: '$fixture', expires_at: 1.day.from_now); item.set_token('$token'); item.save!"
@@ -105,8 +127,8 @@ project=$("${curl_local[@]}" --fail --request POST \
     --data-urlencode "path=$fixture" \
     --data 'visibility=private' \
     "$base/api/v4/projects")
-project_id=$(jq -er '.id' <<<"$project")
-test "$(jq -r '.path' <<<"$project")" = "$fixture"
+project_id=$(json_value integer id <<<"$project")
+test "$(json_value string path <<<"$project")" = "$fixture"
 
 ssh-keygen -q -t ed25519 -N '' -f "$work/id"
 key=$("${curl_local[@]}" --fail --request POST \
@@ -114,7 +136,7 @@ key=$("${curl_local[@]}" --fail --request POST \
     --data-urlencode "title=$fixture" \
     --data-urlencode "key=$(<"$work/id.pub")" \
     "$base/api/v4/user/keys")
-key_id=$(jq -er '.id' <<<"$key")
+key_id=$(json_value integer id <<<"$key")
 ssh-keyscan -T 10 127.0.0.1 >"$work/known_hosts" 2>/dev/null
 export GIT_SSH_COMMAND="ssh -i $work/id -o IdentitiesOnly=yes -o UserKnownHostsFile=$work/known_hosts"
 
