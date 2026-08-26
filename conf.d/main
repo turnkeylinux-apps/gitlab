@@ -80,7 +80,7 @@ done
 # clear secrets (they will be regenerated automatically)
 gitlab-ctl start postgresql
 echo -e 'ApplicationSetting.first.delete\n' | gitlab-rails console -e production
-cat <<EOF | gitlab-rails dbconsole --database main
+cat <<EOF | gitlab-psql
 UPDATE projects SET runners_token = null, runners_token_encrypted = null;
 UPDATE namespaces SET runners_token = null, runners_token_encrypted = null;
 UPDATE application_settings SET runners_registration_token_encrypted = null;
