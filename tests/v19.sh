@@ -127,9 +127,11 @@ test -f /usr/lib/confconsole/plugins.d/Lets_Encrypt/get_certificate.py
 : "${installed_version:?installed_version is missing from $source_file}"
 : "${package_sha256:?package_sha256 is missing from $source_file}"
 : "${repository_key_fingerprint:?repository_key_fingerprint is missing from $source_file}"
+: "${repository_key_sha256:?repository_key_sha256 is missing from $source_file}"
 test "$(dpkg-query -W -f='${Version}' gitlab-ce)" = "$installed_version"
 test "$installed_version" = 19.3.0-ce.0
 test "$package_sha256" = f88f80cd61d6b2beb35aa7207591d4abdfed0e6c2c42e6ed753dd29ea5de076d
+test "$repository_key_sha256" = 003c0ca2fea61767f8c6de7a1c0f49fc88ea3c8db95e3cd1856b32ce9d876e0f
 test "$(gpg --show-keys --with-colons /usr/share/keyrings/gitlab-ce.gpg |
     awk -F: '$1 == "fpr" { print $10; exit }')" = \
     "$repository_key_fingerprint"
@@ -137,6 +139,9 @@ test "$(gpg --show-keys --with-colons /usr/share/keyrings/gitlab-ce.gpg |
 mark_phase readiness
 wait_gitlab_ready
 mark_phase web-login
+expected_root_email=$(sed -n 's/^APP_EMAIL=//p' /etc/inithooks.conf)
+test -n "$expected_root_email" ||
+    fail 'firstboot preseed does not define the expected root email'
 "${curl_local[@]}" --fail --cookie-jar "$cookie" \
     "$base/users/sign_in" >"$page"
 csrf=$(sed -n 's/.*name="authenticity_token" value="\([^"]*\)".*/\1/p' \
@@ -149,8 +154,13 @@ test -n "$csrf"
     --data-urlencode "user[password]=$app_password" \
     --data-urlencode 'user[remember_me]=0' \
     "$base/users/sign_in" >"$page"
-test "$("${curl_local[@]}" --fail --cookie "$cookie" \
-    "$base/api/v4/user" | json_value string username)" = root
+root_account=$("${curl_local[@]}" --fail --cookie "$cookie" \
+    "$base/api/v4/user")
+test "$(json_value string username <<<"$root_account")" = root ||
+    fail 'authenticated GitLab account is not root'
+test "$(json_value string email <<<"$root_account")" = \
+        "$expected_root_email" ||
+    fail 'root account email does not match the firstboot value'
 
 mark_phase project-api
 gitlab-rails runner \
@@ -241,15 +251,18 @@ grep -Fxq 'channel=official-gitlab-ce-debian-trixie' "$work/update" ||
     fail 'updater did not report the official GitLab CE Debian Trixie channel'
 grep -Fxq "integrity=APT-signed-by-$repository_key_fingerprint" "$work/update" ||
     fail 'updater did not report the pinned repository key fingerprint'
+grep -Fxq "repository_key_download_sha256=$repository_key_sha256" \
+        "$work/update" ||
+    fail 'updater did not report the verified repository key download hash'
 
 mark_phase result
 cat >"$result" <<EOF
 package_source=Official GitLab CE Debian Trixie repository
 installed_version=$installed_version
-runtime_checks=normal init; root web login; project API create and web read; SSH Git push and clone; PostgreSQL readback; Sidekiq project cache job; Postfix
+runtime_checks=normal init; root web login and firstboot email; project API create and web read; SSH Git push and clone; PostgreSQL readback; Sidekiq project cache job; Postfix
 updater_command=gitlab-update --check
 updater_result=$status; candidate=$candidate
 updater_channel=official GitLab CE Debian Trixie, supervised required-stop upgrades
-integrity_evidence=repository key $repository_key_fingerprint; package SHA-256 $package_sha256
+integrity_evidence=repository key $repository_key_fingerprint; repository key download SHA-256 $repository_key_sha256; package SHA-256 $package_sha256
 EOF
 mark_phase complete

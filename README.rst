@@ -47,6 +47,10 @@ Repeat the application acceptance checks before proceeding to another required
 stop. Available versions are listed by ``apt-cache madison gitlab-ce`` and the
 `GitLab release blog`_.
 
+If APT reports an expired repository key or ``NO_PUBKEY``, follow the
+`repository-key rotation procedure`_. It preserves the per-repository
+``signed-by`` restriction and verifies GitLab's full published fingerprint.
+
 Credentials *(passwords set at first boot)*
 -------------------------------------------
 
@@ -59,3 +63,4 @@ Credentials *(passwords set at first boot)*
 .. _GitLab documentation: https://docs.gitlab.com/omnibus/update/README.html
 .. _GitLab upgrade path: https://docs.gitlab.com/update/upgrade_paths/
 .. _GitLab release blog: https://about.gitlab.com/blog/categories/releases/
+.. _repository-key rotation procedure: docs/update-apt-repo-key.rst
