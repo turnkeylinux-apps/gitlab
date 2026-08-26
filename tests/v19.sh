@@ -63,6 +63,15 @@ done
 for component in nginx postgresql redis sidekiq gitaly; do
     gitlab-ctl status "$component" | grep -Fq "run: $component:"
 done
+
+# Preserve memory for the identity flow on the constrained Docker runner.
+# These auxiliary services start normally with the appliance but are outside
+# this focused acceptance contract.
+for component in alertmanager gitlab-exporter gitlab-kas node-exporter \
+        postgres-exporter prometheus redis-exporter; do
+    gitlab-ctl stop "$component" >/dev/null
+done
+
 grep -Fxq 'VERSION_CODENAME=trixie' /etc/os-release
 grep -Eq '^turnkey-gitlab-19\.0' /etc/turnkey_version
 test -d /usr/share/webmin/postfix
