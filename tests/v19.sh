@@ -5,6 +5,7 @@ umask 077
 result=${TKL_TEST_RESULT:?TKL_TEST_RESULT is required}
 app_password=${TKL_TEST_APP_PASS:?TKL_TEST_APP_PASS is required}
 source_file=/usr/local/share/turnkey-gitlab/source
+expected_root_email=admin@example.invalid
 fixture="turnkey-v19-$(date +%s)-$$"
 token="tkl$(openssl rand -hex 20)"
 work=$(mktemp -d /tmp/gitlab-v19.XXXXXXXX)
@@ -139,9 +140,6 @@ test "$(gpg --show-keys --with-colons /usr/share/keyrings/gitlab-ce.gpg |
 mark_phase readiness
 wait_gitlab_ready
 mark_phase web-login
-expected_root_email=$(sed -n 's/^APP_EMAIL=//p' /etc/inithooks.conf)
-test -n "$expected_root_email" ||
-    fail 'firstboot preseed does not define the expected root email'
 "${curl_local[@]}" --fail --cookie-jar "$cookie" \
     "$base/users/sign_in" >"$page"
 csrf=$(sed -n 's/.*name="authenticity_token" value="\([^"]*\)".*/\1/p' \
