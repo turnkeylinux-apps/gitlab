@@ -65,7 +65,8 @@ test "$(gpg --show-keys --with-colons /usr/share/keyrings/gitlab-ce.gpg |
     awk -F: '$1 == "fpr" { print $10; exit }')" = \
     "$repository_key_fingerprint"
 
-"${curl_local[@]}" --fail --cookie-jar "$cookie" \
+"${curl_local[@]}" --fail --retry 30 --retry-delay 2 \
+    --retry-all-errors --cookie-jar "$cookie" \
     "$base/users/sign_in" >"$page"
 csrf=$(sed -n 's/.*name="authenticity_token" value="\([^"]*\)".*/\1/p' \
     "$page")
