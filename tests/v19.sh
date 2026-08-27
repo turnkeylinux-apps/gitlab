@@ -5,6 +5,7 @@ umask 077
 result=${TKL_TEST_RESULT:?TKL_TEST_RESULT is required}
 app_password=${TKL_TEST_APP_PASS:?TKL_TEST_APP_PASS is required}
 source_file=/usr/local/share/turnkey-gitlab/source
+expected_root_email=admin@example.invalid
 fixture="turnkey-v19-$(date +%s)-$$"
 token="tkl$(openssl rand -hex 20)"
 work=$(mktemp -d /tmp/gitlab-v19.XXXXXXXX)
@@ -12,6 +13,30 @@ cookie=$work/cookie
 page=$work/page
 project_id=
 key_id=
+ruby=
+phase=initialization
+
+mark_phase() {
+    phase=$1
+    printf 'phase=%s\n' "$phase"
+}
+
+fail() {
+    printf 'error phase=%s message=%s\n' "$phase" "$1" >&2
+    exit 1
+}
+
+report_error() {
+    local status=$1
+    local line=$2
+
+    trap - ERR
+    printf 'error phase=%s status=%s line=%s\n' \
+        "$phase" "$status" "$line" >&2
+    exit "$status"
+}
+
+trap 'report_error "$?" "$LINENO"' ERR
 
 base=$(sed -n "s/^external_url '\([^']*\)'.*/\1/p" /etc/gitlab/gitlab.rb)
 scheme=${base%%://*}
@@ -65,6 +90,7 @@ authenticate_root() {
 
 cleanup() {
     set +e
+    trap - ERR
     if [[ -n $key_id ]]; then
         "${curl_local[@]}" --request DELETE \
             --header "PRIVATE-TOKEN: $token" \
@@ -78,10 +104,14 @@ cleanup() {
     gitlab-rails runner \
         "item = PersonalAccessToken.find_by_token('$token'); item.revoke! if item" \
         >/dev/null 2>&1
+    if [[ $ruby == /tmp/gitlab-v19-background-job.*.rb ]]; then
+        rm -f -- "$ruby"
+    fi
     find "$work" -depth -delete
 }
 trap cleanup EXIT
 
+mark_phase appliance-contract
 for unit in gitlab-runsvdir.service postfix.service; do
     systemctl --quiet is-active "$unit"
     systemctl --quiet is-enabled "$unit"
@@ -113,9 +143,14 @@ test -f /usr/lib/confconsole/plugins.d/Lets_Encrypt/get_certificate.py
 
 # shellcheck disable=SC1090
 . "$source_file"
+: "${installed_version:?installed_version is missing from $source_file}"
+: "${package_sha256:?package_sha256 is missing from $source_file}"
+: "${repository_key_fingerprint:?repository_key_fingerprint is missing from $source_file}"
+: "${repository_key_sha256:?repository_key_sha256 is missing from $source_file}"
 test "$(dpkg-query -W -f='${Version}' gitlab-ce)" = "$installed_version"
 test "$installed_version" = 19.3.0-ce.0
 test "$package_sha256" = f88f80cd61d6b2beb35aa7207591d4abdfed0e6c2c42e6ed753dd29ea5de076d
+test "$repository_key_sha256" = 003c0ca2fea61767f8c6de7a1c0f49fc88ea3c8db95e3cd1856b32ce9d876e0f
 test "$(gpg --show-keys --with-colons /usr/share/keyrings/gitlab-ce.gpg |
     awk -F: '$1 == "fpr" { print $10; exit }')" = \
     "$repository_key_fingerprint"
@@ -130,6 +165,7 @@ for _ in {1..30}; do
 done
 $authenticated
 
+mark_phase project-api
 gitlab-rails runner \
     "item = User.find_by_username('root').personal_access_tokens.create!(scopes: ['api'], name: '$fixture', expires_at: 1.day.from_now); item.set_token('$token'); item.save!"
 
@@ -152,6 +188,7 @@ key_id=$(json_field id <<<"$key")
 ssh-keyscan -T 10 127.0.0.1 >"$work/known_hosts" 2>/dev/null
 export GIT_SSH_COMMAND="ssh -i $work/id -o IdentitiesOnly=yes -o UserKnownHostsFile=$work/known_hosts"
 
+mark_phase ssh-git-round-trip
 git -C "$work" init -q repository
 git -C "$work/repository" config user.name 'TurnKey acceptance'
 git -C "$work/repository" config user.email 'acceptance@example.invalid'
@@ -162,28 +199,71 @@ git -C "$work/repository" remote add origin \
     "git@127.0.0.1:root/$fixture.git"
 git -C "$work/repository" push -q -u origin HEAD:main
 git clone -q "git@127.0.0.1:root/$fixture.git" "$work/readback"
-grep -Fxq 'GitLab v19 project round trip' "$work/readback/README.md"
+grep -Fxq 'GitLab v19 project round trip' "$work/readback/README.md" ||
+    fail 'cloned repository does not contain the pushed marker'
 
 "${curl_local[@]}" --fail --location --cookie "$cookie" \
     "$base/root/$fixture/-/raw/main/README.md" |
-    grep -Fxq 'GitLab v19 project round trip'
+    grep -Fxq 'GitLab v19 project round trip' ||
+    fail 'authenticated web raw read does not contain the pushed marker'
+
+mark_phase database-readback
 gitlab-psql --no-align --tuples-only --command \
     "SELECT path FROM projects WHERE id = $project_id;" |
     grep -Fxq "$fixture"
 
+mark_phase background-jobs
+gitlab-ctl status sidekiq | grep -Fq 'run: sidekiq:' ||
+    fail 'Sidekiq is not running before the job round trip'
+ruby=$(mktemp /tmp/gitlab-v19-background-job.XXXXXXXX.rb)
+cat >"$ruby" <<'RUBY'
+require 'sidekiq/api'
+project_id = Integer(ENV.fetch('TKL_PROJECT_ID'), 10)
+statistics = ['repository_size']
+lease_key = ['project_cache_worker', project_id, *statistics].join(':')
+jid = ProjectCacheWorker.perform_async(project_id, [], statistics)
+deadline = 90.seconds.from_now
+loop do
+  followup = Sidekiq::ScheduledSet.new.find do |job|
+    job.klass == 'UpdateProjectStatisticsWorker' &&
+      job.args[0] == lease_key && job.args[1] == project_id
+  end
+  if followup
+    followup.delete
+    puts "Sidekiq project cache round trip: #{jid}"
+    break
+  end
+  retry_job = Sidekiq::RetrySet.new.find_job(jid)
+  raise "ProjectCacheWorker entered retry: #{retry_job.error_message}" if retry_job
+  raise 'ProjectCacheWorker timed out' if Time.current >= deadline
+  sleep 1
+end
+RUBY
+chgrp git "$ruby"
+chmod 0640 "$ruby"
+TKL_PROJECT_ID=$project_id gitlab-rails runner "$ruby"
+
+mark_phase package-update-channel
 gitlab-update --check >"$work/update"
 candidate=$(sed -n 's/^candidate=//p' "$work/update")
 status=$(sed -n 's/^status=//p' "$work/update")
 test -n "$candidate"
-grep -Fxq 'channel=official-gitlab-ce-debian-trixie' "$work/update"
-grep -Fxq "integrity=APT-signed-by-$repository_key_fingerprint" "$work/update"
+grep -Fxq 'channel=official-gitlab-ce-debian-trixie' "$work/update" ||
+    fail 'updater did not report the official GitLab CE Debian Trixie channel'
+grep -Fxq "integrity=APT-signed-by-$repository_key_fingerprint" "$work/update" ||
+    fail 'updater did not report the pinned repository key fingerprint'
+grep -Fxq "repository_key_download_sha256=$repository_key_sha256" \
+        "$work/update" ||
+    fail 'updater did not report the verified repository key download hash'
 
+mark_phase result
 cat >"$result" <<EOF
 package_source=Official GitLab CE Debian Trixie repository
 installed_version=$installed_version
-runtime_checks=normal init; root web login; project API create and web read; SSH Git push and clone; PostgreSQL readback; Sidekiq; Postfix
+runtime_checks=normal init; root web login and firstboot email; project API create and web read; SSH Git push and clone; PostgreSQL readback; Sidekiq project cache job; Postfix
 updater_command=gitlab-update --check
 updater_result=$status; candidate=$candidate
 updater_channel=official GitLab CE Debian Trixie, supervised required-stop upgrades
-integrity_evidence=repository key $repository_key_fingerprint; package SHA-256 $package_sha256
+integrity_evidence=repository key $repository_key_fingerprint; repository key download SHA-256 $repository_key_sha256; package SHA-256 $package_sha256
 EOF
+mark_phase complete

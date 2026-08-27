@@ -105,6 +105,26 @@ def main():
          config], check=True)
     run(["gitlab-ctl", "reconfigure"], check=True)
 
+    print("Setting GitLab 'root' user email. This might take a while.")
+    email_env = os.environ.copy()
+    email_env.pop('APP_PASS', None)
+    email_env['TKL_ROOT_EMAIL'] = email
+    update_email = run(
+        ["gitlab-rails", "runner",
+         "root = User.find_by!(username: 'root'); "
+         "root.skip_reconfirmation!; "
+         "root.update!(email: ENV.fetch('TKL_ROOT_EMAIL'))"],
+        env=email_env,
+        text=True,
+        capture_output=True,
+    )
+    if update_email.stdout:
+        print(update_email.stdout, end="")
+    if update_email.stderr:
+        print(update_email.stderr, file=sys.stderr, end="")
+    if update_email.returncode:
+        sys.exit(update_email.returncode)
+
     print("Setting GitLab 'root' user password. This might take a while.")
     reset = run(
         ["gitlab-rake", "gitlab:password:reset[root]"],
