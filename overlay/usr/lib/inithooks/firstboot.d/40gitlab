@@ -11,6 +11,7 @@ if ! systemctl is-active --quiet gitlab-runsvdir.service; then
 fi
 
 if [[ -f "$INITHOOKS_CONF" ]]; then
+    # shellcheck disable=SC1090
     source "$INITHOOKS_CONF"
 else
     echo "$(basename "$0"): Warning: $INITHOOKS_CONF not found or is not a file (expected if not preseeded" >&2

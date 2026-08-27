@@ -16,7 +16,15 @@ SOURCE_RECORD=/usr/local/share/turnkey-gitlab/source
 
 APT_KEY_URL=https://packages.gitlab.com/gpg.key
 key=$(mktemp)
-trap 'find "$key" -maxdepth 0 -type f -delete' EXIT
+runsvdir_pid=
+cleanup() {
+    if [[ -n $runsvdir_pid ]]; then
+        kill "$runsvdir_pid" 2>/dev/null || true
+        wait "$runsvdir_pid" 2>/dev/null || true
+    fi
+    find "$key" -maxdepth 0 -type f -delete
+}
+trap cleanup EXIT
 curl -fsSL "$APT_KEY_URL" -o "$key"
 echo "$GITLAB_KEY_SHA256  $key" | sha256sum -c -
 test "$(gpg --show-keys --with-colons "$key" | awk -F: '$1 == "fpr" { print $10; exit }')" = "$GITLAB_KEY_FINGERPRINT"
@@ -26,16 +34,22 @@ apt-get update
 apt-get install -y "gitlab-ce=$GITLAB_VERSION"
 test "$(dpkg-query -W -f='${Version}' gitlab-ce)" = "$GITLAB_VERSION"
 
-mkdir -p "$(dirname "$SOURCE_RECORD")"
-cat >"$SOURCE_RECORD" <<EOF
-package_source=https://packages.gitlab.com/gitlab/gitlab-ce/debian/trixie
-installed_version=$GITLAB_VERSION
-package_sha256=$GITLAB_PACKAGE_SHA256
-repository_key_fingerprint=$GITLAB_KEY_FINGERPRINT
-repository_key_sha256=$GITLAB_KEY_SHA256
-EOF
+# GitLab's package configures itself from its postinst. Stage the verified
+# package so its bundled runit can supervise services during that configure.
+apt-get install --download-only -y "gitlab-ce=$GITLAB_VERSION"
+package=/var/cache/apt/archives/gitlab-ce_${GITLAB_VERSION}_amd64.deb
+test -f "$package"
+echo "$GITLAB_PACKAGE_SHA256  $package" | sha256sum -c -
+dpkg --unpack "$package"
 
-# tweak GitLab defaults for build within TKLDev
+install -d -m 0755 "$(dirname "$CONF")" /opt/gitlab/service
+cp /opt/gitlab/etc/gitlab.rb.template "$CONF"
+chmod 0600 "$CONF"
+sed -i "s|GENERATED_EXTERNAL_URL|http://$DOMAIN|" "$CONF"
+
+# Tweak GitLab defaults before the package's automatic reconfigure. Disabling
+# init detection is required inside the TKLDev chroot, where systemd is not PID
+# 1. The temporary runit process below provides the supervisor GitLab expects.
 sed -i "/^external_url/ s|'.*|'http://$DOMAIN'|" $CONF
 sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|^# *||" $CONF
 sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|=.*|= 'mmap'|" $CONF
@@ -54,10 +68,27 @@ sed -i "/gitlab_rails\['gitlab_email_subject_suffix'\]/ s|=.*|= '\[$APP_NAME\]'|
 echo "package['detect_init'] = false" >> "$CONF"
 echo "package['modify_kernel_parameters'] = false" >> "$CONF"
 
+set +x
+/opt/gitlab/embedded/bin/runsvdir-start >/tmp/gitlab-runsvdir-build.log 2>&1 &
+runsvdir_pid=$!
+set -x
+kill -0 "$runsvdir_pid"
+
+EXTERNAL_URL="http://$DOMAIN" apt-get install -y "gitlab-ce=$GITLAB_VERSION"
+test "$(dpkg-query -W -f='${Version}' gitlab-ce)" = "$GITLAB_VERSION"
+
+mkdir -p "$(dirname "$SOURCE_RECORD")"
+cat >"$SOURCE_RECORD" <<EOF
+package_source=https://packages.gitlab.com/gitlab/gitlab-ce/debian/trixie
+installed_version=$GITLAB_VERSION
+package_sha256=$GITLAB_PACKAGE_SHA256
+repository_key_fingerprint=$GITLAB_KEY_FINGERPRINT
+repository_key_sha256=$GITLAB_KEY_SHA256
+EOF
+
 # set up GitLab
 export LC_ALL=C.UTF-8 # explicitly set UTF8 to avoid GitLab bitchin...
 
-service gitlab-runsvdir start
 gitlab-ctl reconfigure
 
 # disable GitLab WebUI prompting to set 'root' GitLab user password (TurnKey
@@ -85,8 +116,8 @@ UPDATE projects SET runners_token = null, runners_token_encrypted = null;
 UPDATE namespaces SET runners_token = null, runners_token_encrypted = null;
 UPDATE application_settings SET runners_registration_token_encrypted = null;
 UPDATE application_settings SET encrypted_ci_jwt_signing_key = null;
-UPDATE ci_runners SET token = null, token_encrypted = null;
-TRUNCATE integrations, chat_names, issue_tracker_data, jira_tracker_data, slack_integrations, web_hooks, zentao_tracker_data, web_hook_logs, dingtalk_tracker_data, slack_integrations_scopes;
+UPDATE ci_runners SET token_encrypted = null;
+TRUNCATE integrations, chat_names, issue_tracker_data, jira_tracker_data, slack_integrations, web_hooks, zentao_tracker_data, dingtalk_tracker_data, slack_integrations_scopes;
 EOF
 
 # Puma needs PostgreSQL available during graceful shutdown
@@ -111,7 +142,6 @@ sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|= 'mmap'|= nil|" $CONF
 sed -i "/postgresql\['shared_buffers'\]/ s|^|# |" $CONF
 sed -i "/postgresql\['shared_buffers'\]/ s|=.*|= \"256MB\"|" $CONF
 
-service gitlab-runsvdir stop
 # ensure that the overlay turnkey service is the one that is enabled
 systemctl disable gitlab-runsvdir.service
 systemctl enable gitlab-runsvdir.service
