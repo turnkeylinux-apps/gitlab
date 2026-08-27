@@ -86,7 +86,7 @@ for unit in gitlab-runsvdir.service postfix.service; do
     systemctl --quiet is-active "$unit"
     systemctl --quiet is-enabled "$unit"
 done
-for component in nginx postgresql redis sidekiq gitaly; do
+for component in nginx postgresql redis sidekiq gitaly puma; do
     gitlab-ctl status "$component" | grep -Fq "run: $component:"
 done
 
@@ -98,14 +98,13 @@ for component in alertmanager gitlab-exporter gitlab-kas node-exporter \
         postgres-exporter prometheus redis-exporter; do
     gitlab-ctl stop "$component" >/dev/null
 done
-puma_config=/var/opt/gitlab/gitlab-rails/etc/puma.rb
-sed -Ei \
-    -e 's/^workers [0-9]+$/workers 1/' \
-    -e 's/^  options = \{ workers: [0-9]+ \}$/  options = { workers: 1 }/' \
-    "$puma_config"
-grep -Fxq 'workers 1' "$puma_config"
-grep -Fxq '  options = { workers: 1 }' "$puma_config"
-gitlab-ctl restart puma >/dev/null
+# Scale the live Puma cluster without restarting the proven service.
+puma_pid=$(</opt/gitlab/var/puma/puma.pid)
+for _ in {1..4}; do
+    kill -TTOU "$puma_pid"
+    sleep 1
+done
+kill -0 "$puma_pid"
 
 grep -Fxq 'VERSION_CODENAME=trixie' /etc/os-release
 grep -Eq '^turnkey-gitlab-19\.0' /etc/turnkey_version
