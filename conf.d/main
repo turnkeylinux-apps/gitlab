@@ -89,6 +89,8 @@ UPDATE ci_runners SET token = null, token_encrypted = null;
 TRUNCATE integrations, chat_names, issue_tracker_data, jira_tracker_data, slack_integrations, web_hooks, zentao_tracker_data, web_hook_logs, dingtalk_tracker_data, slack_integrations_scopes;
 EOF
 
+# Puma needs PostgreSQL available during graceful shutdown
+while ! gitlab-ctl stop puma | grep -q 'ok: down'; do sleep 1; done
 # fix occasional postgres stop timeout
 while ! gitlab-ctl stop postgresql | grep -q 'ok: down'; do sleep 1; done
 gitlab-ctl stop
