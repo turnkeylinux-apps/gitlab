@@ -85,7 +85,8 @@ authenticate_root() {
         "$base/users/sign_in" >"$page" || return
     user=$("${curl_local[@]}" --fail --cookie "$cookie" \
         "$base/api/v4/user") || return
-    [[ $(json_field username <<<"$user") == root ]]
+    [[ $(json_field username <<<"$user") == root &&
+        $(json_field email <<<"$user") == "$expected_root_email" ]]
 }
 
 cleanup() {
