@@ -6,16 +6,50 @@ ADMIN_PASS=Turnkey1
 APP_NAME="TurnKey GitLab"
 DISPLAY_NAME="$APP_NAME Admin"
 CONF=/etc/gitlab/gitlab.rb
+GITLAB_VERSION=19.3.0-ce.0
+GITLAB_PACKAGE_SHA256=f88f80cd61d6b2beb35aa7207591d4abdfed0e6c2c42e6ed753dd29ea5de076d
+GITLAB_KEY_SHA256=003c0ca2fea61767f8c6de7a1c0f49fc88ea3c8db95e3cd1856b32ce9d876e0f
+GITLAB_KEY_FINGERPRINT=F6403F6544A38863DAA0B6E03F01618A51312F3F
+SOURCE_RECORD=/usr/local/share/turnkey-gitlab/source
 
 [ "$FAB_HTTP_PROXY" ] && export http_proxy=$FAB_HTTP_PROXY
 
 APT_KEY_URL=https://packages.gitlab.com/gpg.key
-curl -sS $APT_KEY_URL | apt-key --keyring /usr/share/keyrings/gitlab-ce.gpg add -
+key=$(mktemp)
+runsvdir_pid=
+cleanup() {
+    if [[ -n $runsvdir_pid ]]; then
+        kill "$runsvdir_pid" 2>/dev/null || true
+        wait "$runsvdir_pid" 2>/dev/null || true
+    fi
+    find "$key" -maxdepth 0 -type f -delete
+}
+trap cleanup EXIT
+curl -fsSL "$APT_KEY_URL" -o "$key"
+echo "$GITLAB_KEY_SHA256  $key" | sha256sum -c -
+test "$(gpg --show-keys --with-colons "$key" | awk -F: '$1 == "fpr" { print $10; exit }')" = "$GITLAB_KEY_FINGERPRINT"
+gpg --batch --yes --dearmor --output /usr/share/keyrings/gitlab-ce.gpg "$key"
 
 apt-get update
-apt-get install gitlab-ce -y
+apt-get install -y "gitlab-ce=$GITLAB_VERSION"
+test "$(dpkg-query -W -f='${Version}' gitlab-ce)" = "$GITLAB_VERSION"
 
-# tweak GitLab defaults for build within TKLDev
+# GitLab's package configures itself from its postinst. Stage the verified
+# package so its bundled runit can supervise services during that configure.
+apt-get install --download-only -y "gitlab-ce=$GITLAB_VERSION"
+package=/var/cache/apt/archives/gitlab-ce_${GITLAB_VERSION}_amd64.deb
+test -f "$package"
+echo "$GITLAB_PACKAGE_SHA256  $package" | sha256sum -c -
+dpkg --unpack "$package"
+
+install -d -m 0755 "$(dirname "$CONF")" /opt/gitlab/service
+cp /opt/gitlab/etc/gitlab.rb.template "$CONF"
+chmod 0600 "$CONF"
+sed -i "s|GENERATED_EXTERNAL_URL|http://$DOMAIN|" "$CONF"
+
+# Tweak GitLab defaults before the package's automatic reconfigure. Disabling
+# init detection is required inside the TKLDev chroot, where systemd is not PID
+# 1. The temporary runit process below provides the supervisor GitLab expects.
 sed -i "/^external_url/ s|'.*|'http://$DOMAIN'|" $CONF
 sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|^# *||" $CONF
 sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|=.*|= 'mmap'|" $CONF
@@ -34,34 +68,60 @@ sed -i "/gitlab_rails\['gitlab_email_subject_suffix'\]/ s|=.*|= '\[$APP_NAME\]'|
 echo "package['detect_init'] = false" >> "$CONF"
 echo "package['modify_kernel_parameters'] = false" >> "$CONF"
 
+set +x
+/opt/gitlab/embedded/bin/runsvdir-start >/tmp/gitlab-runsvdir-build.log 2>&1 &
+runsvdir_pid=$!
+set -x
+kill -0 "$runsvdir_pid"
+
+EXTERNAL_URL="http://$DOMAIN" apt-get install -y "gitlab-ce=$GITLAB_VERSION"
+test "$(dpkg-query -W -f='${Version}' gitlab-ce)" = "$GITLAB_VERSION"
+
+mkdir -p "$(dirname "$SOURCE_RECORD")"
+cat >"$SOURCE_RECORD" <<EOF
+package_source=https://packages.gitlab.com/gitlab/gitlab-ce/debian/trixie
+installed_version=$GITLAB_VERSION
+package_sha256=$GITLAB_PACKAGE_SHA256
+repository_key_fingerprint=$GITLAB_KEY_FINGERPRINT
+repository_key_sha256=$GITLAB_KEY_SHA256
+EOF
+
 # set up GitLab
 export LC_ALL=C.UTF-8 # explicitly set UTF8 to avoid GitLab bitchin...
 
-service gitlab-runsvdir start
 gitlab-ctl reconfigure
 
 # disable GitLab WebUI prompting to set 'root' GitLab user password (TurnKey
 # sets GitLab 'root' user password via inithook)
-echo -e "$ADMIN_PASS\n$ADMIN_PASS\n" | gitlab-rake 'gitlab:password:reset[root]'
+set +x
+printf '%s\n%s\n' "$ADMIN_PASS" "$ADMIN_PASS" | gitlab-rake 'gitlab:password:reset[root]'
+set -x
 gitlab-psql -c "UPDATE users SET password_automatically_set='f' WHERE id = 1;"
 gitlab-psql -c "UPDATE users SET reset_password_token='' WHERE id = 1;"
 
 # remove initially created files which will be auto-regenerated on new host
-rm -f /opt/gitlab/embedded/nodes/tkldev.json
-rm -f /etc/gitlab/gitlab-secrets.json
+for generated in \
+    /opt/gitlab/embedded/nodes/tkldev.json \
+    /etc/gitlab/gitlab-secrets.json; do
+    if [[ -f $generated ]]; then
+        find "$generated" -maxdepth 0 -type f -delete
+    fi
+done
 
 # clear secrets (they will be regenerated automatically)
 gitlab-ctl start postgresql
 echo -e 'ApplicationSetting.first.delete\n' | gitlab-rails console -e production
-cat <<EOF | gitlab-rails dbconsole --database main
+cat <<EOF | gitlab-psql
 UPDATE projects SET runners_token = null, runners_token_encrypted = null;
 UPDATE namespaces SET runners_token = null, runners_token_encrypted = null;
 UPDATE application_settings SET runners_registration_token_encrypted = null;
 UPDATE application_settings SET encrypted_ci_jwt_signing_key = null;
-UPDATE ci_runners SET token = null, token_encrypted = null;
-TRUNCATE integrations, chat_names, issue_tracker_data, jira_tracker_data, slack_integrations, web_hooks, zentao_tracker_data, web_hook_logs, dingtalk_tracker_data, slack_integrations_scopes;
+UPDATE ci_runners SET token_encrypted = null;
+TRUNCATE integrations, chat_names, issue_tracker_data, jira_tracker_data, slack_integrations, web_hooks, zentao_tracker_data, dingtalk_tracker_data, slack_integrations_scopes;
 EOF
 
+# Puma needs PostgreSQL available during graceful shutdown
+while ! gitlab-ctl stop puma | grep -q 'ok: down'; do sleep 1; done
 # fix occasional postgres stop timeout
 while ! gitlab-ctl stop postgresql | grep -q 'ok: down'; do sleep 1; done
 gitlab-ctl stop
@@ -70,10 +130,9 @@ gitlab-ctl stop
 # GitLab Omnibus provides it's own LE integration - GitLab specific Confconsole
 # files provided via overlay
 LE_DIR=/usr/lib/confconsole/plugins.d/Lets_Encrypt
-FILES="add-water cert_auto_renew.py dehydrated-wrapper *.pyc"
-for file in $FILES; do
-    rm -rf $LE_DIR/$file
-done
+find "$LE_DIR" -maxdepth 1 -type f \
+    \( -name add-water -o -name cert_auto_renew.py \
+       -o -name dehydrated-wrapper -o -name '*.pyc' \) -delete
 # GitLab Omnibus includes it's own ACME client
 apt-get purge -y dehydrated
 
@@ -83,7 +142,6 @@ sed -i "/postgresql\['dynamic_shared_memory_type'\]/ s|= 'mmap'|= nil|" $CONF
 sed -i "/postgresql\['shared_buffers'\]/ s|^|# |" $CONF
 sed -i "/postgresql\['shared_buffers'\]/ s|=.*|= \"256MB\"|" $CONF
 
-service gitlab-runsvdir stop
 # ensure that the overlay turnkey service is the one that is enabled
 systemctl disable gitlab-runsvdir.service
 systemctl enable gitlab-runsvdir.service

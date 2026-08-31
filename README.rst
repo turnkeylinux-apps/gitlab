@@ -32,16 +32,24 @@ and on top of that:
 Supervised Manual GitLab Update
 -------------------------------
 
-It is recommended to always first check the `GitLab documentation`_ prior to
-update. It is also recommended that you ensure you have a full backup (TKLBAM
-is a good option, but there are other methods). Once you are statisfied,
-update to the latest stable release via apt::
+Check the installed and eligible versions without changing the appliance::
+
+    gitlab-update --check
+
+Before an update, consult the `GitLab upgrade path`_ and the release-specific
+`GitLab documentation`_. GitLab requires intermediate upgrade stops. Back up
+the appliance, then install the next eligible version explicitly::
 
     apt update
-    apt install gitlab-ce
+    apt install gitlab-ce=<version>
 
-You can view available versions via the `GitLab 'release' blog tag`_. We also
-highly recommend subscribing to receive email notifications.
+Repeat the application acceptance checks before proceeding to another required
+stop. Available versions are listed by ``apt-cache madison gitlab-ce`` and the
+`GitLab release blog`_.
+
+If APT reports an expired repository key or ``NO_PUBKEY``, follow the
+`repository-key rotation procedure`_. It preserves the per-repository
+``signed-by`` restriction and verifies GitLab's full published fingerprint.
 
 Credentials *(passwords set at first boot)*
 -------------------------------------------
@@ -53,4 +61,6 @@ Credentials *(passwords set at first boot)*
 .. _TurnKey Core: https://www.turnkeylinux.org/core
 .. _Omnibus package: https://docs.gitlab.com/omnibus/
 .. _GitLab documentation: https://docs.gitlab.com/omnibus/update/README.html
-.. _GitLab 'release' blog tag: https://about.gitlab.com/blog/categories/releases/
+.. _GitLab upgrade path: https://docs.gitlab.com/update/upgrade_paths/
+.. _GitLab release blog: https://about.gitlab.com/blog/categories/releases/
+.. _repository-key rotation procedure: docs/update-apt-repo-key.rst

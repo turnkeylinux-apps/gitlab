@@ -1,0 +1,46 @@
+#!/bin/bash
+set -Eeuo pipefail
+
+if [[ ${1:-} != --check || $# -ne 1 ]]; then
+    echo "usage: gitlab-update --check" >&2
+    exit 2
+fi
+
+source_record=/usr/local/share/turnkey-gitlab/source
+keyring=/usr/share/keyrings/gitlab-ce.gpg
+source_list=/etc/apt/sources.list.d/gitlab-ce.list
+source_line="deb [signed-by=$keyring] https://packages.gitlab.com/gitlab/gitlab-ce/debian/ trixie main"
+
+# shellcheck disable=SC1090
+. "$source_record"
+: "${installed_version:?installed_version is missing from $source_record}"
+: "${repository_key_fingerprint:?repository_key_fingerprint is missing from $source_record}"
+: "${repository_key_sha256:?repository_key_sha256 is missing from $source_record}"
+
+installed=$(dpkg-query -W -f='${Version}' gitlab-ce)
+candidate=$(apt-cache policy gitlab-ce |
+    awk '/Candidate:/ { print $2; exit }')
+fingerprint=$(gpg --show-keys --with-colons "$keyring" |
+    awk -F: '$1 == "fpr" { print $10; exit }')
+
+test "$installed" = "$installed_version"
+test "$fingerprint" = "$repository_key_fingerprint"
+[[ $repository_key_sha256 =~ ^[0-9a-f]{64}$ ]]
+test "$candidate" != "(none)"
+grep -Fxq "$source_line" "$source_list"
+
+if dpkg --compare-versions "$candidate" eq "$installed"; then
+    status=up-to-date
+else
+    status=supervised-upgrade-available
+fi
+
+cat <<EOF
+installed=$installed
+candidate=$candidate
+channel=official-gitlab-ce-debian-trixie
+status=$status
+integrity=APT-signed-by-$fingerprint
+upgrade_policy=follow-required-stops-before-apt-install
+repository_key_download_sha256=$repository_key_sha256
+EOF
